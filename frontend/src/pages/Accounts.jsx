@@ -31,8 +31,8 @@ export default function Accounts() {
         if (f.key === 'ig_user_id') cfg.ig_user_id = form[f.key]
         else secrets[f.key] = form[f.key]
       })
-      await api.post(`/api/accounts/${provider}/configure`, { secrets, config: cfg })
-      setFlash(`${provider}: credentials stored locally (never displayed).`)
+      const d = await api.post(`/api/accounts/${provider}/configure`, { secrets, config: cfg })
+      setFlash(d?.note || `${provider}: credentials stored locally (never displayed).`)
       setForm({}); setOpen(''); list.reload()
     } catch (e) { setErr(e) } finally { setBusy('') }
   }
@@ -41,10 +41,11 @@ export default function Accounts() {
     setBusy(provider); setErr(null); setFlash(null)
     try {
       const d = await api.del(`/api/accounts/${provider}`)
-      if (d?.code === 'approval_required') setFlash(`Deleting credentials needs approval (#${d.approval_id}). Approve it, then retry.`)
+      if (d?.code === 'approval_required') setFlash(`Deleting credentials requires owner approval (#${d.approval_id}) — approve it in Approvals, then retry.`)
+      else if (d?.code === 'not_connected') setFlash(`${provider}: no stored credentials to remove.`)
       else { setFlash(`${provider} disconnected.`); list.reload() }
     } catch (e) {
-      if (e.code === 'approval_required') setFlash(`Deleting credentials needs approval (#${e.approval_id}).`)
+      if (e.code === 'approval_required') setFlash(`Deleting credentials requires owner approval (#${e.approval_id}) — approve it in Approvals, then retry.`)
       else setErr(e)
     } finally { setBusy('') }
   }

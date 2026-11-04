@@ -265,3 +265,36 @@ td.num { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size
   .content { padding: 16px; }
   .kv { grid-template-columns: 100px 1fr; }
 }
+
+/* ---------- content calendar ---------- */
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); text-align: center; padding: 4px 0; }
+.cal-cell {
+  min-height: 92px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 5px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cal-blank { opacity: .3; }
+.cal-today { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(110, 168, 254, .3); }
+.cal-daynum { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.cal-chip {
+  display: flex; align-items: center; gap: 4px; font-size: 10.5px;
+  padding: 2px 5px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--line-2);
+}
+.cal-chip-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-chip-x { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1; }
+.cal-chip-x:hover:not(:disabled) { color: var(--err); }
+.cal-chip-x:disabled { opacity: .4; cursor: not-allowed; }
+.c-draft { border-color: var(--line-2); }
+.c-planned { border-color: rgba(110, 168, 254, .5); background: rgba(110, 168, 254, .10); }
+.c-approved { border-color: rgba(139, 124, 246, .5); background: rgba(139, 124, 246, .12); }
+.c-published { border-color: rgba(62, 207, 142, .5); background: rgba(62, 207, 142, .10); }
+@media (max-width: 900px) {
+  .cal-cell { min-height: 62px; padding: 3px; }
+  .cal-chip { font-size: 9.5px; padding: 1px 3px; }
+}
+
+/* ---------- copyable documents (CV / cover letter) ---------- */
+.doc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.doc-badges { display: flex; gap: 6px; flex-wrap: wrap; }

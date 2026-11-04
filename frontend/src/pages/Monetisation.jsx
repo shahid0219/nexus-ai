@@ -21,17 +21,21 @@ export default function Monetisation() {
   const affiliates = useLoad(() => api.get('/api/monetisation/affiliates'), [])
   const sponsors = useLoad(() => api.get('/api/monetisation/sponsorships'), [])
 
-  const post = async (path, body, after) => {
+  const post = async (path, body, okMsg, reload) => {
     setBusy(true); setErr(null); setFlash(null); setOut(null)
     try {
       const d = await api.post(path, body)
       setOut(d)
-      if (d?.code === 'approval_required') setFlash(`Approval requested (#${d.approval_id}). Approve it in Approvals, then retry.`)
-      else if (d?.code) setFlash(d.message || d.code)
-      else if (after) { setFlash(after); after() }
+      if (d?.requires_auth) setFlash(d.message || 'Authentication required.')
+      else if (d?.code === 'approval_required') setFlash(`Approval requested (#${d.approval_id}) — approve it in Approvals, then retry.`)
+      else if (d?.code && d.code !== 'created' && d.code !== 'ok') setFlash(d.message || d.code)
+      else {
+        setFlash(okMsg || 'Done.')
+        if (reload) reload()
+      }
       return d
     } catch (e) {
-      if (e.code === 'approval_required') setFlash(`Approval requested (#${e.approval_id}). Approve it, then retry.`)
+      if (e.code === 'approval_required') setFlash(`Approval requested (#${e.approval_id}) — approve it in Approvals, then retry.`)
       else setErr(e)
     } finally { setBusy(false) }
   }
@@ -100,7 +104,7 @@ export default function Monetisation() {
             <Btn busy={busy} disabled={!rev.amount || !rev.source} onClick={() => post('/api/monetisation/revenue', {
               amount: Number(rev.amount), currency: rev.currency, source: rev.source,
               description: rev.description || null, payment_reference: rev.payment_reference || null,
-            }, 'Revenue recorded.')}>Record</Btn>
+            }, rev.payment_reference.trim() ? 'Revenue recorded (verified).' : 'Revenue recorded (unverified — no payment reference).', revenue.reload)}>Record</Btn>
           </Card>
         </>
       )}
@@ -112,7 +116,7 @@ export default function Monetisation() {
               <Field label="Name"><Input value={prod.name} onChange={(e) => setProd({ ...prod, name: e.target.value })} /></Field>
               <Field label="Idea"><Input value={prod.idea} onChange={(e) => setProd({ ...prod, idea: e.target.value })} /></Field>
             </div>
-            <Btn busy={busy} disabled={!prod.name.trim()} onClick={() => post('/api/monetisation/products', prod, 'Product registered.').then(() => products.reload())}>Add product</Btn>
+            <Btn busy={busy} disabled={!prod.name.trim()} onClick={() => post('/api/monetisation/products', prod, 'Product registered.', products.reload)}>Add product</Btn>
           </Card>
           <Card title="Products" actions={<Btn variant="ghost" busy={products.loading} onClick={products.reload}>Refresh</Btn>}>
             {products.error && <ErrorMsg error={products.error} onRetry={products.reload} />}
@@ -147,7 +151,7 @@ export default function Monetisation() {
           {affiliates.data && <Notice tone="warn">{affiliates.data.disclaimer}</Notice>}
           {affiliates.data?.programs?.map((p) => (
             <div key={p.name} className="card mt"><div className="card-body">
-              <div className="row"><strong>{p.name}</strong><Badge>{p.category}</Badge><Badge>{p.as_of}</Badge></div>
+              <div className="row"><strong>{p.name}</strong><Badge>{p.category}</Badge><Badge>{p.as_of || affiliates.data?.as_of}</Badge></div>
               <p className="muted">{p.terms}</p>
               <a href={p.source_url} target="_blank" rel="noreferrer" className="dim">{p.source_url}</a>
             </div></div>
@@ -164,7 +168,7 @@ export default function Monetisation() {
               <Field label="Contact"><Input value={spon.contact} onChange={(e) => setSpon({ ...spon, contact: e.target.value })} /></Field>
               <Field label="URL"><Input value={spon.url} onChange={(e) => setSpon({ ...spon, url: e.target.value })} /></Field>
             </div>
-            <Btn busy={busy} disabled={!spon.brand.trim()} onClick={() => post('/api/monetisation/sponsorships', { ...spon, url: spon.url || null, contact: spon.contact || null, niche: spon.niche || null }, 'Opportunity tracked.').then(() => sponsors.reload())}>Add opportunity</Btn>
+            <Btn busy={busy} disabled={!spon.brand.trim()} onClick={() => post('/api/monetisation/sponsorships', { ...spon, url: spon.url || null, contact: spon.contact || null, niche: spon.niche || null }, 'Opportunity tracked.', sponsors.reload)}>Add opportunity</Btn>
           </Card>
           <Card title="Opportunities" actions={<Btn variant="ghost" busy={sponsors.loading} onClick={sponsors.reload}>Refresh</Btn>}>
             {sponsors.error && <ErrorMsg error={sponsors.error} onRetry={sponsors.reload} />}

@@ -58,12 +58,19 @@ export default function Content() {
         {trends.data?.clusters?.map((c, i) => (
           <div key={i} className="card mt">
             <div className="card-body">
-              <div className="row"><strong>{c.title}</strong><Badge tone="info">cluster</Badge></div>
-              <p className="dim">{c.keywords?.join(' · ')}</p>
-              {c.items.map((it, k) => (
+              <div className="row">
+                <strong>{c.title}</strong>
+                <Badge tone="info">cluster</Badge>
+                {c.fetched_at && <span className="dim">fetched {c.fetched_at}</span>}
+              </div>
+              <p className="dim">{(c.keywords || []).join(' · ')}</p>
+              {(c.items || []).map((it, k) => (
                 <div key={k} className="log-row">
-                  <span className="log-msg"><a href={it.url} target="_blank" rel="noreferrer">{it.title || 'untitled'}</a></span>
-                  <span className="log-meta">{it.source} · {it.score}</span>
+                  <span className="log-msg">
+                    <a href={it.url} target="_blank" rel="noreferrer">{it.title || 'untitled'}</a>
+                    <span className="dim"> — {it.source}{it.score != null ? ` · score ${it.score}` : ''}</span>
+                  </span>
+                  <span className="log-meta">{it.published_at || it.ts || ''}</span>
                 </div>
               ))}
             </div>
@@ -90,8 +97,10 @@ export default function Content() {
 
       {res && (
         <Card title="Result">
-          <AiMeta data={res} />
-          {res.tag && <Badge tone="warn">{res.tag}</Badge>}
+          <div className="row">
+            <AiMeta data={res} />
+            {res.tag && <Badge tone="warn">{res.tag}</Badge>}
+          </div>
           <ResultBlock data={res} />
         </Card>
       )}
@@ -102,16 +111,29 @@ export default function Content() {
 function ResultBlock({ data }) {
   if (!data) return null
   if (data.results) {
+    const meta = data.meta || {}
     return (
       <div className="stack mt">
-        {Object.entries(data.results).map(([k, v]) => (
-          <div key={k} className="card">
-            <div className="card-body">
-              <div className="row"><Badge tone="accent">{k}</Badge><span className="dim">{v.length} chars</span></div>
-              <pre className="result">{v}</pre>
+        {Object.entries(data.results).map(([k, v]) => {
+          const m = meta[k] || {}
+          return (
+            <div key={k} className="card">
+              <div className="card-body">
+                <div className="row">
+                  <Badge tone="accent">{k}</Badge>
+                  {m.generated_by && (
+                    <Badge tone={m.generated_by === 'fallback' ? 'warn' : 'ok'}>{m.generated_by}</Badge>
+                  )}
+                  <span className="dim">
+                    {typeof v === 'string' ? v.length : 0} chars
+                    {m.limit ? ` / ${m.limit} limit` : ''}
+                  </span>
+                </div>
+                <pre className="result">{typeof v === 'string' ? v : JSON.stringify(v, null, 2)}</pre>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }

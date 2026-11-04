@@ -28,6 +28,13 @@ function Row({ a, onAct, busy }) {
           <span className="log-meta">#{a.id} · {a.ts}</span>
         </div>
         {a.payload != null && <pre className="result mt">{pretty(a.payload)}</pre>}
+        {a.status !== 'pending' && (
+          <p className="dim mt">
+            decided {a.decided_ts || '—'} by {a.decided_by || '—'}
+            {a.reason ? <> · reason: {a.reason}</> : null}
+            {a.used_ts ? <> · executed {a.used_ts}</> : <> · not executed</>}
+          </p>
+        )}
         {a.status === 'pending' && (
           <div className="mt">
             {open ? (
@@ -54,7 +61,7 @@ function Row({ a, onAct, busy }) {
 }
 
 export default function Approvals() {
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState('pending')
   const list = useLoad(() => api.get(`/api/approvals?status=${encodeURIComponent(status)}`), [status])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -63,8 +70,8 @@ export default function Approvals() {
   const act = async (a, kind, reason) => {
     setBusy(true); setErr(null)
     try {
-      await api.post(`/api/approvals/${a.id}/${kind}`, reason ? { reason } : {})
-      setFlash(`#${a.id} ${kind}d.`)
+      const d = await api.post(`/api/approvals/${a.id}/${kind}`, reason ? { reason } : {})
+      setFlash(d?.hint ? `#${a.id} approved — ${d.hint}.` : `#${a.id} ${kind === 'approve' ? 'approved' : 'rejected'}.`)
       list.reload()
     } catch (e) { setErr(e) } finally { setBusy(false) }
   }
@@ -76,11 +83,26 @@ export default function Approvals() {
         <p>Human-in-the-loop gates raised by backend actions.</p>
       </div>
 
+      <div className="notice n-info">
+        <div className="notice-body">
+          <strong>How the approval gate works</strong>
+          <span>
+            Side-effecting actions (publishing, uploading, job applications, deleting data,
+            recording revenue, disconnecting accounts) never run on their own. When you trigger
+            one, the backend creates a <em>pending</em> approval with the exact payload and
+            returns <span className="mono">409 approval_required</span> — nothing happens yet.
+            Review the payload below, then <b>Approve</b> (records your decision + timestamp) or
+            <b> Reject</b> with a reason. Approvals are <b>single-use</b>: retry the original
+            request afterwards and it executes exactly once against the approved payload.
+          </span>
+        </div>
+      </div>
+
       <div className="pillbar">
         <div className="seg">
-          {['', 'pending', 'approved', 'rejected'].map((s) => (
-            <button key={s || 'all'} className={status === s ? 'on' : ''} onClick={() => setStatus(s)}>
-              {s || 'all'}
+          {['pending', 'approved', 'rejected'].map((s) => (
+            <button key={s} className={status === s ? 'on' : ''} onClick={() => setStatus(s)}>
+              {s}
             </button>
           ))}
         </div>
@@ -91,8 +113,12 @@ export default function Approvals() {
       {err && <ErrorMsg error={err} />}
       {list.error && <ErrorMsg error={list.error} onRetry={list.reload} />}
       {list.loading && !list.data && <Spinner label="Loading approvals…" />}
-      {list.data && list.data.length === 0 && !list.error && <Empty>No approvals match this filter.</Empty>}
-      {list.data && list.data.map((a) => <Row key={a.id} a={a} busy={busy} onAct={act} />)}
+      {list.data && (Array.isArray(list.data) ? list.data : list.data.approvals || []).length === 0 && !list.error && (
+        <Empty>No {status} approvals.</Empty>
+      )}
+      {(Array.isArray(list.data) ? list.data : list.data?.approvals || []).map((a) => (
+        <Row key={a.id} a={a} busy={busy} onAct={act} />
+      ))}
     </div>
   )
 }
