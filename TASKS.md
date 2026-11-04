@@ -9,66 +9,66 @@ Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & 
 - [x] P0 `SECURITY.md`
 
 ## Phase 2 — GitHub
-- [ ] P0 Verify `gh auth status`
-- [ ] P0 Create/reuse private repo `shahid0219/nexus-ai`
-- [ ] P0 `git init` + `.gitignore` (credentials, data, node_modules, venv, dist)
-- [ ] P0 Commit + push docs; verify with `gh repo view`
+- [x] P0 Verify `gh auth status`
+- [x] P0 Create/reuse private repo `shahid0219/nexus-ai`
+- [x] P0 `git init` + `.gitignore` (credentials, data, node_modules, venv, dist)
+- [x] P0 Commit + push docs; verify with `gh repo view`
 
 ## Phase 3 — Backend core
-- [ ] P0 `requirements.txt`, `backend/app/config.py`
-- [ ] P0 `db.py` full schema (all tables, WAL, seeds)
-- [ ] P0 `approvals.py` gate + CRUD
-- [ ] P0 `activity.py` logs + task history
-- [ ] P0 `process.py` subprocess allowlist (ffmpeg/ffprobe/ollama only)
-- [ ] P0 `security.py` secret redaction + input guards
-- [ ] P0 `main.py` FastAPI shell, `/api/health`, static SPA hosting, lifespan scheduler
-- [ ] P0 `routers.py` module wiring
+- [x] P0 `requirements.txt`, `backend/app/config.py`
+- [x] P0 `db.py` full schema (24 tables, WAL, seeds, additive migrations)
+- [x] P0 `approvals.py` gate + CRUD (payload hash, single-use, kind allowlist)
+- [x] P0 `activity.py` logs + task history
+- [x] P0 `process.py` subprocess allowlist (ffmpeg/ffprobe/gh)
+- [x] P0 `security.py` secret redaction + input guards
+- [x] P0 `main.py` FastAPI shell, `/api/health`, static SPA hosting, lifespan scheduler
+- [x] P0 `routers.py` module wiring
 
 ## Phase 4 — Command Centre dashboard
-- [ ] P0 Vite + React scaffold, design system CSS (dark, responsive, sidebar/topbar)
-- [ ] P0 Dashboard page: system status, metrics, quick actions
-- [ ] P0 Approvals page: queue + approve/reject
-- [ ] P0 Logs page + Tasks history page
-- [ ] P1 Mobile drawer / responsive breakpoints
+- [x] P0 Vite + React scaffold, design system CSS (dark, responsive, sidebar/topbar)
+- [x] P0 Dashboard page: system status, metrics, quick actions
+- [x] P0 Approvals page: queue + approve/reject
+- [x] P0 Logs page + Tasks history page
+- [x] P1 Mobile drawer / responsive breakpoints
 
 ## Phase 5 — Local AI
-- [ ] P0 `ollama_client.py`: health, generate, model policy, 4GB-VRAM defaults
-- [ ] P0 Deterministic fallback generator (tagged, never presented as Ollama)
-- [ ] P0 `ai_calls` logging + `POST /api/ai/generate`
+- [x] P0 `ollama_client.py`: health, generate, model policy, 4GB-VRAM defaults
+- [x] P0 Deterministic fallback generator (tagged, never presented as Ollama)
+- [x] P0 `ai_calls` logging + `POST /api/ai/generate`
 
 ## Phase 6 — Content & video production
-- [ ] P1 Voiceover: `pyttsx3` → WAV (+ honest failure if SAPI missing)
-- [ ] P1 Subtitles: script → SRT with cue timing
-- [ ] P1 Video: FFmpeg render (scenes + drawtext + audio) → MP4
-- [ ] P1 Thumbnail: Pillow 1280×720 PNG
-- [ ] P1 Pipeline endpoint orchestrating script→voice→subs→video→thumb
+- [x] P1 Voiceover: `pyttsx3` → WAV (+ honest failure if SAPI missing)
+- [x] P1 Subtitles: script → SRT with cue timing
+- [x] P1 Video: FFmpeg render (scenes + drawtext + audio) → MP4
+- [x] P1 Thumbnail: Pillow 1280×720 PNG
+- [x] P1 Pipeline endpoints orchestrating script → voice → subs → video → thumb
 
 ## Phase 7 — Studios
-- [ ] P1 Instagram: profile analysis, niche research, reels ideas, captions, calendar
-- [ ] P1 Instagram: approval-gated publish + Graph analytics (`requires_auth` honest state)
-- [ ] P1 YouTube: topics, long script, Shorts script
-- [ ] P1 YouTube: OAuth status/start/callback, approval-gated upload, analytics
-- [ ] P1 LinkedIn: profile improve, branding, job discovery (RemoteOK/Remotive), matching
-- [ ] P1 LinkedIn: truthful CV + cover letter (no-invention guard), applications + gated submit
+- [x] P1 Instagram: profile analysis, niche research, reels ideas, captions, calendar
+- [x] P1 Instagram: approval-gated publish + Graph analytics (`requires_auth` honest state)
+- [x] P1 YouTube: topics, long script, Shorts script
+- [x] P1 YouTube: OAuth status/start/callback, approval-gated upload, analytics
+- [x] P1 LinkedIn: profile improve, branding, job discovery (RemoteOK/Remotive), matching
+- [x] P1 LinkedIn: truthful CV + cover letter (no-invention guard), applications + gated submit
 
 ## Phase 8 — Intelligence, monetisation, automation, accounts
-- [ ] P1 Content Intelligence: trends (HN Algolia/Reddit), audience research, multi-platform generation
-- [ ] P1 Monetisation: products, freelance leads, affiliates, sponsorships, verified revenue + CSV export
-- [ ] P1 Automation: 5 jobs, scheduler thread, manual run, retries, reports
-- [ ] P1 Account Centre: GitHub via `gh`, Meta token, Google OAuth config, LinkedIn status
+- [x] P1 Content Intelligence: trends (HN Algolia/Reddit), audience research, multi-platform generation
+- [x] P1 Monetisation: products, freelance leads, affiliates, sponsorships, verified revenue + CSV export
+- [x] P1 Automation: 5 jobs, scheduler thread, manual run, retries, reports
+- [x] P1 Account Centre: GitHub via `gh`, Meta token, Google OAuth config, LinkedIn status
 
 ## Phase 9 — Packaging & docs
-- [ ] P0 `start_nexus.bat` (deps check, frontend build if needed, uvicorn start)
-- [ ] P0 `stop_nexus.bat`
-- [ ] P0 `README.md`, `ARCHITECTURE.md`, `CHANGELOG.md`
-- [ ] P0 Real test run → `TEST_REPORT.md`
+- [x] P0 `start_nexus.bat` (deps check, frontend build if needed, uvicorn start)
+- [x] P0 `stop_nexus.bat`
+- [x] P0 `README.md`, `ARCHITECTURE.md`, `CHANGELOG.md`
+- [x] P0 Real test run → `TEST_REPORT.md`
 
 ## Phase 10 — Ship
-- [ ] P0 `pytest` green; `npm run build` green; smoke `/api/health`
-- [ ] P0 Commit all source, push, verify `gh repo view shahid0219/nexus-ai`
-- [ ] P0 Update `PROJECT_STATE.md` + this checklist
+- [x] P0 `pytest` green (31 passed, 1 environment skip); `npm run build` green; live smoke test
+- [ ] P0 Push all source, verify `gh api repos/shahid0219/nexus-ai`
+- [x] P0 Update `PROJECT_STATE.md` + this checklist
 
 ## Backlog (P2)
-- [ ] P2 Optional `ollama pull` helper in start script
+- [x] P2 Optional `ollama pull` helper in start script
 - [ ] P2 CSV import for sponsorships/applications
 - [ ] P2 Keyboard shortcuts + command palette in dashboard
