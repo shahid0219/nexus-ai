@@ -20,5 +20,5 @@ if "%FOUND%"=="0" (
 echo.
 echo Note: Ollama is left running (it is a shared system service).
 echo       Stop it manually with: taskkill /IM ollama.exe /F
-timeout /t 2 /nobreak >nul
+ping -n 2 127.0.0.1 >nul 2>nul
 endlocal

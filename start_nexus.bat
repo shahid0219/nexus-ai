@@ -56,7 +56,7 @@ if not errorlevel 1 (
   if errorlevel 1 (
     echo [*] Starting Ollama in the background...
     start "Ollama" /min cmd /c "ollama serve"
-    timeout /t 3 /nobreak >nul
+    timeout /t 3 /nobreak >nul 2>nul || ping -n 4 127.0.0.1 >nul 2>nul
   )
   ollama list 2>nul | findstr /r /c:"qwen2.5:3b" /c:"llama3.2" >nul
   if errorlevel 1 (
