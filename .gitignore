@@ -24,6 +24,8 @@ frontend/dist/
 *.log.txt
 frontend/build-log.txt
 .npmrc
+frontend/.npm-cache-tmp/
+.npm-cache/
 
 # OS / editor
 Thumbs.db

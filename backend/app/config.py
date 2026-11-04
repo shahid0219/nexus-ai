@@ -23,14 +23,22 @@ DEV_PORT = 5173
 
 # --- Local AI policy (4GB VRAM) -------------------------------------------
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-PREFERRED_MODELS = ["qwen2.5:3b", "llama3.2:3b", "llama3.2:1b", "phi3:mini", "gemma2:2b"]
+# Ordered preference. Anything whose file is bigger than AI_MAX_MODEL_GB is skipped
+# so a small GPU never tries to load a model that will not fit.
+PREFERRED_MODELS = [
+    "qwen2.5-coder:3b", "qwen2.5:3b", "gemma3:1b", "ministral-3:3b",
+    "qwen3.5:4b", "llama3.2:3b", "llama3.2:1b", "phi3:mini", "gemma2:2b",
+]
+AI_MAX_MODEL_GB = float(os.environ.get("NEXUS_AI_MAX_MODEL_GB", "5.5"))
 AI_MAX_TOKENS = int(os.environ.get("NEXUS_AI_TOKENS", "1024"))
 AI_TIMEOUT = float(os.environ.get("NEXUS_AI_TIMEOUT", "90"))
+AI_RETRIES = int(os.environ.get("NEXUS_AI_RETRIES", "1"))
+AI_BACKOFF = float(os.environ.get("NEXUS_AI_BACKOFF", "1.5"))
 # One request at a time keeps a 4GB card stable.
 AI_LOCK_TIMEOUT = 120.0
 
 # --- Subprocess allowlist (SECURITY.md §4: no shell=True, no arbitrary exec)
-ALLOWED_SUBPROCESSES = {"ffmpeg", "ffprobe", "gh"}
+ALLOWED_SUBPROCESSES = {"ffmpeg", "ffprobe", "gh", "git"}
 
 # --- External egress allowlist (SECURITY.md §6) ---------------------------
 ALLOWED_HOSTS = {

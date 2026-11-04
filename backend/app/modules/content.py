@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_fallback, config, db, ollama_client
+from .. import activity, ai_router, ai_fallback, config, db, ollama_client
 from ..security import NexusError, now_iso
 
 router = APIRouter(prefix="/api/content", tags=["content"])
@@ -125,7 +125,7 @@ def trends():
                    "VALUES(?,?,?,?,?)",
                    (c["title"][:60], c["title"], ",".join(c["keywords"]),
                     db.dumps(c["items"]), now_iso()))
-    synth = ollama_client.generate(
+    synth = ai_router.generate(
         "Summarise these trending topics in 3 bullets:\n"
         + "\n".join(i["title"] for i in items[:12]),
         module="content.trends",
@@ -143,7 +143,7 @@ class AudienceIn(BaseModel):
 
 @router.post("/audience")
 def audience(body: AudienceIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Audience research brief for niche: {body.niche}",
         module="content.audience",
         fallback=lambda: json.dumps(
@@ -174,7 +174,7 @@ def generate(body: GenerateIn):
         if p not in PLATFORM_LIMITS:
             raise NexusError(f"unsupported platform: {platform}",
                              code="invalid_platform")
-        res = ollama_client.generate(
+        res = ai_router.generate(
             f"Write a {p} post about: {body.topic}",
             module=f"content.{p}",
             fallback=lambda p=p: ai_fallback.platform_content(body.topic, p))

@@ -3,6 +3,73 @@
 All notable changes to this project. Format loosely follows Keep a Changelog.
 This is a personal local-first project; versions are milestones, not releases.
 
+## [1.1.0] — 2026-11-05
+
+Remediation & activation session: real AI provider routing, GitHub tooling,
+Meta OAuth, and a Settings dashboard. 99 tests passing.
+
+### Added — AI provider router
+- One `ai_router` module now serves **every** AI feature (previously the
+  Ollama client was called per module). Provider chain, in priority order:
+  DeepSeek → Groq → OpenRouter → Google Gemini → **Ollama (local)** →
+  deterministic templates. Only DeepSeek-classified paid keys would ever run a
+  paid call; without stored credentials each provider is skipped honestly.
+- Failover policy per request: model-not-found/auth/quota errors are
+  classified distinctly, cool a provider down (quota 900 s, auth 1800 s,
+  404 3600 s, network 120 s), and automatically move to the next healthy
+  provider. Cooldown state is persisted in a new `ai_provider_state` table.
+- Truthful metadata on every generation: `provider`, `provider_label`, `model`,
+  `fallback`, `latency_ms`, `tokens_in/out`, `ts`, plus a per-attempt trace.
+- Ollama model selection is now **size-aware**: files larger than
+  `NEXUS_AI_MAX_MODEL_GB` (default 5.5 GB) can never be selected on a 4 GB card.
+- `/api/ai/status`, `/api/ai/test` (lists models, never burns quota),
+  `/api/ai/order`, `/api/ai/model`, `/api/ai/stream` (SSE), and
+  `POST/DELETE /api/ai/provider/credentials` for owner-supplied keys — the key is
+  stored locally in `data/credentials.json` and never echoed back.
+
+### Added — GitHub
+- New `github` module + dashboard page. Repository status (remote, branch, dirty
+  count, ahead/behind, last commit), a **10-pattern secret scanner** that blocks
+  any commit or push until clean, a `commit` endpoint that refuses protected
+  paths (credentials, `.env`, node_modules, dist, caches), a push endpoint, and
+  a remote verification endpoint comparing local vs `origin` head.
+- Public-profile preparation: preview endpoint derives technologies only from
+  real public repos; applying any change requires an
+  `github.profile.update` approval (now in `GATED_KINDS`).
+
+### Added — Meta/Instagram OAuth
+- Official Facebook OAuth dialog + manual code exchange (matches the YouTube
+  flow), long-lived token exchange, identity/permission verification against
+  `/me`, `/me/accounts` and `/me/permissions`, auto-detection of the linked
+  Instagram professional account, and honest
+  `blocked_by_permission` / missing-professional-account states.
+- Instagram Studio gained a **Connection** tab: app-id/secret storage (never
+  returned by the API), authorisation flow, verification display.
+
+### Added — dashboard
+- New **AI Settings** page: active provider + model, provider priority with
+  ↑/↓ reordering, per-provider health/latency/last error, key management,
+  a "Test all providers" action, and a live generate box with attempt trace.
+- New **GitHub** page: connection card, secret scan, safe commit/push form,
+  remote verification, and profile preview.
+- Dashboard shows the active AI provider and links to settings.
+
+### Fixed
+- Cover letters produced by a model could drop the supplied company or
+  applicant name; the CV/cover-letter truthfulness guard now **rejects and
+  replaces** any model draft that misses supplied facts (regression-tested via
+  the live Ollama path).
+- `credentials.public_view` now reports `has_api_key` for AI providers without
+  leaking the key.
+
+### Verified live (this session)
+- Ollama started and serving: `qwen2.5-coder:3b` answered `NEXUS_LOCAL_OK` /
+  `NEXUS_API_OK` through both the module and the HTTP API.
+- Streaming endpoint: 2 delta chunks + done event over 447 ms.
+- FFmpeg render produced a real 4.0 s MP4 validated by ffprobe.
+- Scheduler restart semantics verified against persisted `last_run_ts`.
+- Secret scan over the full tree: clean.
+
 ## [1.0.0] — 2026-11-04
 
 First complete, working build. Everything listed below is implemented and covered

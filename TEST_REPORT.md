@@ -1,6 +1,112 @@
 # TEST_REPORT.md — NEXUS AI
 
-**Run date:** 2026-11-04
+**Run date:** 2026-11-05
+**Command:** `python -m pytest backend/tests -q` (from project root)
+**Result:** **99 passed, 2 skipped** in 88.94 s
+(the skips are Windows SAPI voiceover and the job-feed test when its upstream is
+unreachable; both skip themselves rather than fail)
+
+Environment at time of run:
+
+| Component | Version |
+|---|---|
+| OS | Windows 10 (AMD64), 16 logical cores |
+| Python | 3.10.11 |
+| Node / npm | v24.21.0 / 11.19.0 |
+| FFmpeg | 8.1.1-full_build (gyan.dev) |
+| Git | 2.50.1.windows.1 |
+| Ollama | 0.40.13 client, **server running**, 6 models installed |
+| FastAPI / Starlette | 0.116.1 / 0.47.2 |
+| React / Vite | 18.3 / 5.4.21 |
+
+The suite runs against a throwaway SQLite database in `%TEMP%` (see
+`backend/tests/conftest.py`) — the real `data/nexus.db` is never touched.
+Network tests skip themselves when the public feeds are unreachable, so the
+suite is meaningful fully offline.
+
+---
+
+## Verification session 2 — remediation & activation (2026-11-05)
+
+This session added a real AI provider router, GitHub tooling, a Meta OAuth flow
+and a Settings UI. Everything below was run on this machine today.
+
+### New suites
+
+| Suite | Tests | Proves |
+|---|---|---|
+| `backend/tests/test_ai_router.py` | 19 | provider order, 429/quota failover, cooldown skip, auth/404 classification, timeout retries, Ollama selection, oversized-model rejection, redaction, truthful metadata, credential-free connectivity probe |
+| `backend/tests/test_github.py` | 15 | forbidden-path refusal, traversal refusal, 10 credential patterns, redacted previews, status parsing, commit blocked by a dirty scan, approval-gated profile apply, preview never writes |
+| `backend/tests/test_meta_oauth.py` | 12 | OAuth status states, secret never echoed, official auth URL, long-lived token exchange, provider-error surfacing, permission-gap detection, missing professional-account detection, honest analytics/publish refusal |
+
+**Total now: 99 passed, 2 skipped.**
+
+### Live AI verification (real, not simulated)
+
+Ollama was started with `ollama serve` on `127.0.0.1:11434`. Six models were
+already installed; the 16.5 GB model is correctly refused by the 4 GB-VRAM
+policy and `qwen2.5-coder:3b` (1.8 GB) is selected instead.
+
+```
+GET  /api/ai/status        -> active: ollama / model qwen2.5-coder:3b
+POST /api/ai/generate      -> generated_by=ollama model=qwen2.5-coder:3b
+                              text="NEXUS_API_OK"
+POST /api/ai/stream        -> text/event-stream, 2 delta chunks,
+                              done event provider=ollama model=qwen2.5-coder:3b
+```
+
+### Real FFmpeg verification
+
+```
+POST /api/youtube/render (2 scenes x 2 s)
+  -> data/artifacts/video_1793825762_NEXUS_Render_Test.mp4, 17,304 bytes
+ffprobe: format_name=mov,mp4,m4a,3gp,3g2,mj2  duration=4.000000  size=17304
+```
+
+A real, playable MP4 with the exact expected duration.
+
+### Scheduler persistence
+
+`automation_jobs.last_run_ts` was back-dated in SQLite and
+`Scheduler._check_due()` was called against the reopened database: it read the
+persisted timestamp, fired `weekly_report`, and wrote a new `automation_runs`
+row. Restart recovery therefore works from persisted state, not memory.
+
+### Secret scan
+
+`GET /api/github/secret-scan` scanned 64 files with a clean result after the npm
+cache directory was removed and ignored. Findings are shown redacted.
+
+### Frontend build
+
+```
+vite v5.4.21 building for production...
+✓ 48 modules transformed.
+dist/index.html                   0.39 kB │ gzip:  0.27 kB
+dist/assets/index-DuWULXd0.css   11.66 kB │ gzip:  3.21 kB
+dist/assets/index-DqAJYbVG.js   253.56 kB │ gzip: 76.41 kB
+✓ built in 2.60s
+```
+
+### API surface
+
+**82 method+path pairs** across 9 modules (was 62 across 8).
+
+### Known limits after session 2
+
+1. **DeepSeek API is not free.** No key is stored, so it is listed but skipped.
+   The free chat website is not an API and is never scraped.
+2. **Instagram/Meta and Google/YouTube remain `awaiting_configuration`** — no
+   owner app credentials exist yet. The flows are implemented and unit-tested;
+   the authenticated paths cannot be exercised without real credentials.
+3. **No public GitHub repos yet**, so the profile preview reports an empty
+   detected stack rather than inventing one.
+4. **Voiceover** still skips: `pyttsx3` will not install on this Python build.
+
+---
+
+## Verification session 1 — original baseline (2026-11-04)
+
 **Command:** `python -m pytest -q` (from project root)
 **Result:** **54 passed, 1 skipped** in 80.54 s
 (the skip is Windows SAPI voiceover, unavailable on this machine; the two

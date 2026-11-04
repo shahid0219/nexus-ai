@@ -1,12 +1,14 @@
 """Instagram Studio — analysis, niche research, reels, captions, calendar,
 approval-gated publishing via the official Meta Graph API, honest analytics."""
 import json
+import uuid
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_fallback, approvals, credentials, db, ollama_client
+from .. import activity, ai_router, ai_fallback, approvals, credentials, db, ollama_client
 from ..security import ApprovalRequired, NexusError, clamp, now_iso, sanitize_filename
 
 router = APIRouter(prefix="/api/instagram", tags=["instagram"])
@@ -21,7 +23,7 @@ class AnalyzeIn(BaseModel):
 
 @router.post("/profile/analyze")
 def profile_analyze(body: AnalyzeIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         "Analyse this Instagram profile and return concrete improvements:\n"
         + body.profile_text,
         module="instagram.profile",
@@ -30,8 +32,8 @@ def profile_analyze(body: AnalyzeIn):
             ai_fallback.profile_analysis(body.profile_text), ensure_ascii=False))
     import json
     analysis = None
-    if result["generated_by"] == "ollama":
-        analysis = None  # free text goes to `text`
+    if result["generated_by"] != "fallback":
+        analysis = None  # model prose goes to `text`
     else:
         try:
             analysis = json.loads(result["text"])
@@ -52,7 +54,7 @@ class NicheIn(BaseModel):
 @router.post("/niche/research")
 def niche_research(body: NicheIn):
     payload = {"niche": body.niche, "context": body.context or ""}
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Niche research brief: {body.niche}. Context: {body.context or 'none'}",
         module="instagram.niche",
         system="Produce honest niche analysis; label uncertainty.",
@@ -60,7 +62,7 @@ def niche_research(body: NicheIn):
             ai_fallback.niche_research(body.niche), ensure_ascii=False))
     import json
     try:
-        data = json.loads(result["text"]) if result["generated_by"] != "ollama" else None
+        data = json.loads(result["text"]) if result["generated_by"] == "fallback" else None
     except (ValueError, TypeError):
         data = None
     analysis = data or ai_fallback.niche_research(body.niche)
@@ -80,7 +82,7 @@ class ReelsIn(BaseModel):
 
 @router.post("/reels/ideas")
 def reels_ideas(body: ReelsIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Give {body.count} Instagram Reels ideas about: {body.topic}",
         module="instagram.reels",
         fallback=lambda: json.dumps(
@@ -104,7 +106,7 @@ class CaptionsIn(BaseModel):
 
 @router.post("/captions")
 def captions(body: CaptionsIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Write {body.count} {body.tone} Instagram captions about: {body.topic}",
         module="instagram.captions",
         fallback=lambda: json.dumps(
@@ -225,6 +227,180 @@ def publish(body: PublishIn):
         return {"code": "published", "remote_id": data2["id"], "post_id": post_id}
     except httpx.HTTPError as exc:
         raise NexusError(f"Graph API unreachable: {exc}", code="network_error", status=502)
+
+
+# ----------------------------------------------------------- meta oauth -----
+META_AUTH = "https://www.facebook.com/v21.0/dialog/oauth"
+META_TOKEN = "https://graph.facebook.com/v21.0/oauth/access_token"
+META_REDIRECT = "https://www.facebook.com/connect/login_success.html"
+META_SCOPES = ("instagram_basic,instagram_content_publish,"
+               "instagram_manage_insights,pages_show_list,pages_read_engagement")
+
+
+class MetaCallbackIn(BaseModel):
+    code: str = Field(min_length=5, max_length=4000)
+    redirect_uri: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/oauth/status")
+def oauth_status():
+    c = credentials.get_provider("meta")
+    return {
+        "app_configured": bool(c.get("app_id") and c.get("app_secret")),
+        "authorized": bool(c.get("access_token")),
+        "has_ig_user_id": bool(c.get("ig_user_id")),
+        "expires_at": c.get("expires_at"),
+        "scopes": c.get("scopes"),
+        "redirect_uri": c.get("redirect_uri") or META_REDIRECT,
+        "status": ("connected" if c.get("access_token") and c.get("ig_user_id")
+                   else ("awaiting_authentication" if c.get("app_id")
+                         else "awaiting_configuration")),
+        "note": "Instagram publishing requires a Business or Creator account linked "
+                "to a Facebook Page. Personal accounts cannot publish via the API.",
+    }
+
+
+class MetaAppIn(BaseModel):
+    app_id: str = Field(min_length=5, max_length=40)
+    app_secret: str = Field(min_length=8, max_length=200)
+    ig_user_id: str | None = Field(default=None, max_length=60)
+
+
+@router.post("/oauth/configure")
+def oauth_configure(body: MetaAppIn):
+    view = credentials.set_provider(
+        "meta", {"app_id": body.app_id, "app_secret": body.app_secret},
+        config_={"redirect_uri": META_REDIRECT, "scopes": META_SCOPES,
+                 **({"ig_user_id": body.ig_user_id} if body.ig_user_id else {})})
+    activity.info("instagram", "meta app credentials stored")
+    return {"code": "stored", "provider": "meta",
+            "present": view.get("present"), "has_client": view.get("has_client"),
+            "note": "Meta app id/secret stored locally in data/credentials.json "
+                    "(gitignored) and never returned by the API."}
+
+
+@router.get("/oauth/start")
+def oauth_start():
+    c = credentials.get_provider("meta")
+    app_id = c.get("app_id")
+    if not app_id:
+        raise NexusError("Meta app not configured — add an app id and secret first",
+                         code="awaiting_configuration", status=400)
+    state = uuid.uuid4().hex
+    db.execute("INSERT INTO oauth_states(provider,state,created_ts,status) "
+               "VALUES('meta',?,?,'pending') "
+               "ON CONFLICT(provider) DO UPDATE SET state=excluded.state, "
+               "created_ts=excluded.created_ts, status='pending'", (state, now_iso()))
+    redirect = c.get("redirect_uri") or META_REDIRECT
+    url = (f"{META_AUTH}?client_id={app_id}&redirect_uri={redirect}"
+           f"&response_type=code&state={state}&scope={META_SCOPES}")
+    return {
+        "auth_url": url, "state": state, "redirect_uri": redirect,
+        "manual": "Open auth_url, approve access, then copy the whole redirect URL you "
+                  "land on (it contains ?code=…) and submit it in Instagram Studio.",
+        "eligibility": "Requires an Instagram Business/Creator account connected to a "
+                       "Facebook Page that you administer.",
+    }
+
+
+@router.post("/oauth/callback")
+def oauth_callback(body: MetaCallbackIn):
+    """Exchange an authorisation code for a long-lived token. The code comes from the
+    redirect URL the owner lands on; the app secret never leaves this process."""
+    c = credentials.get_provider("meta")
+    app_id, secret = c.get("app_id"), c.get("app_secret")
+    if not app_id or not secret:
+        raise NexusError("Meta app not configured", code="awaiting_configuration",
+                         status=400)
+    redirect = body.redirect_uri or c.get("redirect_uri") or META_REDIRECT
+    try:
+        r = httpx.get(META_TOKEN, params={
+            "client_id": app_id, "client_secret": secret, "redirect_uri": redirect,
+            "code": body.code.strip()}, timeout=30)
+    except httpx.HTTPError as exc:
+        raise NexusError(f"Meta token endpoint unreachable: {exc.__class__.__name__}",
+                         code="network_error", status=502)
+    data = r.json()
+    if "access_token" not in data:
+        err = data.get("error") or {}
+        raise NexusError(err.get("message") or "token exchange failed",
+                         code="oauth_failed", status=400)
+    token = data["access_token"]
+    # Exchange for a long-lived token when the app secret is available.
+    expires_at = None
+    try:
+        ll = httpx.get(f"{GRAPH}/oauth/access_token", params={
+            "grant_type": "fb_exchange_token", "client_id": app_id,
+            "client_secret": secret, "fb_exchange_token": token}, timeout=30)
+        lld = ll.json()
+        if "access_token" in lld:
+            token = lld["access_token"]
+            expires_at = (datetime.now(timezone.utc) + timedelta(
+                seconds=int(lld.get("expires_in", 5184000)))).isoformat(timespec="seconds")
+    except (httpx.HTTPError, ValueError, KeyError):
+        pass
+    credentials.set_provider("meta", {"access_token": token},
+                             config_={"expires_at": expires_at,
+                                      "redirect_uri": redirect, "scopes": META_SCOPES})
+    db.execute("UPDATE oauth_states SET status='connected', detail=? WHERE provider='meta'",
+               ("token stored",))
+    identity = _verify_identity()
+    activity.info("instagram", "meta oauth completed",
+                  {"authorized": identity.get("ok", False)})
+    return {"code": "connected", "identity": identity,
+            "note": "Token stored locally; it is never returned by the API."}
+
+
+def _verify_identity() -> dict:
+    """Check the token actually maps to an Instagram professional account + scopes."""
+    c = credentials.get_provider("meta")
+    token = c.get("access_token")
+    if not token:
+        return {"ok": False, "reason": "no token"}
+    try:
+        me = httpx.get(f"{GRAPH}/me", params={
+            "fields": "id,name", "access_token": token}, timeout=20).json()
+        pages = httpx.get(f"{GRAPH}/me/accounts", params={
+            "fields": "id,name,instagram_business_account",
+            "access_token": token}, timeout=20).json()
+        perms = httpx.get(f"{GRAPH}/me/permissions", params={
+            "access_token": token}, timeout=20).json()
+    except httpx.HTTPError as exc:
+        return {"ok": False, "reason": f"network: {exc.__class__.__name__}"}
+    granted = sorted(p.get("permission") for p in perms.get("data", [])
+                     if p.get("status") == "granted")
+    ig_accounts = []
+    for page in pages.get("data", []):
+        iba = page.get("instagram_business_account") or {}
+        if iba.get("id"):
+            ig_accounts.append({"page": page.get("name"), "ig_user_id": iba["id"]})
+    required = {"instagram_basic", "instagram_content_publish"}
+    missing = sorted(required - set(granted))
+    ok = bool(ig_accounts) and not missing
+    if ok and not c.get("ig_user_id"):
+        credentials.set_provider("meta", {}, config_={"ig_user_id":
+                                                      ig_accounts[0]["ig_user_id"]})
+    return {
+        "ok": ok,
+        "facebook_user": me.get("name") or me.get("id"),
+        "instagram_accounts": ig_accounts,
+        "granted_permissions": granted,
+        "missing_permissions": missing,
+        "blocked_by_permission": bool(missing),
+        "reason": (None if ok else
+                   ("no Instagram professional account is linked to a Page you manage"
+                    if not ig_accounts else
+                    f"missing permissions: {', '.join(missing)}")),
+    }
+
+
+@router.get("/oauth/verify")
+def oauth_verify():
+    c = credentials.get_provider("meta")
+    if not c.get("access_token"):
+        return {"ok": False, "requires_auth": True,
+                "reason": "no Meta token stored — run the OAuth flow first"}
+    return _verify_identity()
 
 
 @router.get("/analytics")

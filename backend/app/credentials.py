@@ -76,8 +76,9 @@ def public_view(provider: str) -> dict:
         "scopes": entry.get("scopes"),
         "expires_at": entry.get("expires_at"),
         "note": entry.get("note"),
-        "has_client": bool(entry.get("client_id")),
+        "has_client": bool(entry.get("client_id") or entry.get("app_id")),
         "has_token": bool(entry.get("access_token") or entry.get("refresh_token")),
+        "has_api_key": bool(entry.get("api_key")),
     }
     return view
 

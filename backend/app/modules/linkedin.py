@@ -12,7 +12,7 @@ import httpx
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_fallback, approvals, db, ollama_client
+from .. import activity, ai_router, ai_fallback, approvals, db, ollama_client
 from ..security import ApprovalRequired, NexusError, clamp, now_iso
 
 router = APIRouter(prefix="/api/linkedin", tags=["linkedin"])
@@ -35,7 +35,7 @@ class ProfileIn(BaseModel):
 
 @router.post("/profile/improve")
 def profile_improve(body: ProfileIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         "Improve this LinkedIn profile — headline, about, experience bullets. "
         "Rephrase only facts present in the text; never invent employers, dates, "
         "degrees or metrics.\n" + body.profile_text,
@@ -67,7 +67,7 @@ class BrandingIn(BaseModel):
 
 @router.post("/branding")
 def branding(body: BrandingIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Developer-branding content ideas using ONLY these facts: {body.facts}\n"
         f"Niche: {body.niche or 'general tech'}",
         module="linkedin.branding",
@@ -332,16 +332,16 @@ def cv_generate(body: CvIn):
     # Optional AI polish — only accepted if it introduces no new facts.
     generated_by = "deterministic"
     if body.target_role:
-        res = ollama_client.generate(
+        res = ai_router.generate(
             f"Polish this CV summary for {body.target_role}, reusing ONLY these facts:\n"
             + cv_text[:3000],
             module="linkedin.cv",
             system="Do not add any fact not present in the input.",
             fallback=lambda: None)
-        if res["generated_by"] == "ollama" and res["text"]:
+        if res["generated_by"] != "fallback" and res["text"]:
             ok, problems = _validate_no_new_facts(res["text"], p)
             if ok:
-                generated_by = "ollama"
+                generated_by = res["generated_by"]
             else:
                 activity.warn("linkedin", "CV AI polish rejected by truthfulness guard",
                               {"problems": problems[:5]})
@@ -360,14 +360,39 @@ class CoverIn(BaseModel):
 def cover_letter(body: CoverIn):
     skills = [s for s in body.profile.skills][:6]
     job = {"company": body.company or "your team", "title": body.profile.headline or "the role"}
-    result = ollama_client.generate(
+    fallback_text = ai_fallback.cover_letter(body.profile.model_dump(), job, skills)
+    result = ai_router.generate(
         "Write a truthful cover letter. Facts allowed: "
         + db.dumps(body.profile.model_dump())[:2500]
-        + "\nJob: " + body.job_description[:1500],
+        + "\nJob: " + body.job_description[:1500]
+        + (f"\nAddress it to: {body.company}" if body.company else ""),
         module="linkedin.cover",
         system="Never invent employers, dates, degrees or metrics.",
-        fallback=lambda: ai_fallback.cover_letter(body.profile.model_dump(), job, skills))
-    return {"text": result["text"], "generated_by": result["generated_by"],
+        fallback=lambda: fallback_text)
+    text = result["text"] or ""
+    generated_by = result["generated_by"]
+    reasons: list[str] = []
+    if generated_by != "fallback" and text:
+        # A model may only be used if it honours the supplied facts.
+        if body.company and body.company.lower() not in text.lower():
+            reasons.append("drops the supplied company name")
+        if body.profile.name and body.profile.name.lower() not in text.lower():
+            reasons.append("drops the supplied applicant name")
+        for m in _YEAR_RE.finditer(text):
+            if m.group(0) not in db.dumps(body.profile.model_dump()):
+                reasons.append(f"invents the date {m.group(0)}")
+                break
+        for skill in skills[:4]:
+            if skill.lower() not in text.lower() and skill.lower() not in \
+                    body.job_description.lower():
+                reasons.append(f"drops the supplied skill '{skill}'")
+                break
+    if reasons:
+        activity.warn("linkedin", "cover letter AI draft rejected by truthfulness guard",
+                      {"problems": reasons[:5]})
+        text, generated_by = fallback_text, "fallback"
+    return {"text": text, "generated_by": generated_by,
+            "rejected_model_reasons": reasons or None,
             "disclaimer": "Uses only your supplied facts; review before sending. "
                           "Sending requires owner approval."}
 

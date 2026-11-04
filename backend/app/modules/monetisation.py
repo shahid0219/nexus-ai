@@ -7,7 +7,7 @@ import io
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_fallback, approvals, db, ollama_client
+from .. import activity, ai_router, ai_fallback, approvals, db, ollama_client
 from ..security import ApprovalRequired, NexusError, now_iso
 
 router = APIRouter(prefix="/api/monetisation", tags=["monetisation"])
@@ -91,7 +91,7 @@ class AffiliateAnalyzeIn(BaseModel):
 
 @router.post("/affiliates/analyze")
 def affiliate_analyze(body: AffiliateAnalyzeIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Which affiliate programs fit niche '{body.niche}' "
         f"(audience: {body.audience or 'unknown'})? Programs: "
         + "; ".join(p["name"] for p in AFFILIATE_PROGRAMS),
@@ -134,7 +134,7 @@ def sponsorship_draft(sid: int):
     row = db.one("SELECT * FROM sponsorship_opportunities WHERE id=?", (sid,))
     if not row:
         raise NexusError("opportunity not found", code="not_found", status=404)
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Draft a short sponsorship outreach email to {row['brand']} "
         f"(niche: {row['niche'] or 'general'}). No claims beyond stated facts.",
         module="monetisation.sponsorship",

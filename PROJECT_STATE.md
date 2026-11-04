@@ -3,50 +3,51 @@
 > **Source of truth for resuming work.** Read this file first in any new session.
 > Update it at the end of every work session.
 
-Last updated: 2026-11-04 (session 1, complete)
+Last updated: 2026-11-05 (session 2, complete)
 
 ---
 
 ## Current phase
 
-**DONE — Phases 1–9 complete and verified locally. Phase 10 (push) in progress.**
+**DONE — remediation & activation complete. 99 tests pass, 2 skip. Pushed to
+`shahid0219/nexus-ai`.**
 
-The application is functional: 62 API routes, 24 tables, 10 dashboard pages,
-31 passing tests, frontend built and served from `127.0.0.1:8777`.
+The application is functional: 82 API routes, 25 tables, 12 dashboard pages,
+real local inference through Ollama, GitHub tooling, and a Meta OAuth flow.
 
-## Completed
+## Session 2 summary (2026-11-05)
 
-- [x] Environment inspected:
-  - Windows 10, Python 3.10.11 (`pip 25.2`), Node v24.21.0, Git 2.50.1, FFmpeg 8.1.1 (gyan full build)
-  - `gh` authenticated as `shahid0219` (keyring, scopes: gist read:org repo workflow) — token never read or stored
-  - Ollama 0.40.13 installed, **not running**, no models pulled
-  - Existing projects preserved: `ai_business` (port 8765), `jarvis-agent-outputs` — untouched
-- [x] All four master docs (`NEXUS_MASTER_SPEC.md`, `PROJECT_STATE.md`, `TASKS.md`, `SECURITY.md`)
-- [x] Private repo `shahid0219/nexus-ai` created; docs commit `c68645c` pushed to `main`
-- [x] Backend core: `config`, `db`, `security`, `approvals`, `process`, `activity`,
-      `ollama_client`, `ai_fallback`, `credentials`, `routers`, `main`
-- [x] All 8 modules: `command_centre`, `instagram`, `youtube`, `linkedin`,
-      `content`, `monetisation`, `automation`, `accounts`
-- [x] Full React frontend (10 pages) + design system CSS; `npm run build` green
-- [x] `pytest`: **54 passed, 1 skipped** (`TEST_REPORT.md` has the recorded run)
-- [x] `start_nexus.bat`, `stop_nexus.bat`
-- [x] `README.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `TEST_REPORT.md`
-- [x] Live smoke test on `127.0.0.1:8777`: health, status, stats, accounts,
-      automation jobs, OAuth status, SPA root and both built assets all 200
+- [x] AI provider router (`backend/app/ai_router.py`) used by all 15 AI call
+      sites; provider priority DeepSeek → Groq → OpenRouter → Google → Ollama →
+      fallback, with per-class cooldowns persisted in `ai_provider_state`.
+- [x] Ollama started (`ollama serve`) and verified: 6 models present,
+      `qwen2.5-coder:3b` selected, real inference confirmed via module + HTTP.
+      Size-aware selection refuses the 16.5 GB model on a 4 GB card.
+- [x] AI Settings page (priority reorder, keys, health, test-all, live generate).
+- [x] GitHub module + page: status, 10-pattern secret scan, safe commit/push,
+      remote verify, public-profile preview (apply needs approval).
+- [x] Meta/Instagram OAuth: official dialog, manual code exchange, long-lived
+      token, identity + permission verification, Instagram tab.
+- [x] 45 new tests (19 router, 15 github, 12 meta oauth); suite is 99 pass.
+- [x] Docs updated: TEST_REPORT, CHANGELOG, PROJECT_STATE, TASKS.
+
+## Known state of external integrations
+
+| Integration | State | Blocking step |
+|---|---|---|
+| Ollama | **working** | none |
+| DeepSeek API | not configured (paid) | no free API exists; owner key optional |
+| Instagram/Meta | awaiting_configuration | owner must create a Meta app + professional account |
+| Google/YouTube | awaiting_configuration | owner must create an OAuth client |
+| GitHub | connected via `gh` | none |
 
 ## Remaining
 
-1. `git add -A`, commit, push to `shahid0219/nexus-ai`, verify with `gh api`.
-
-## Next actions (in order, for a future session)
-
-1. Verify the push landed: `gh api repos/shahid0219/nexus-ai/commits --jq '.[0].sha'`
-2. Optional: `ollama pull qwen2.5:3b` to switch every AI feature from fallback to local
-   inference — no code change needed, the client picks it up automatically.
-3. Optional: configure Meta / Google credentials in Account Centre to enable
-   Instagram publish and YouTube upload (currently `awaiting_authentication`).
-4. Optional: install `pyttsx3` (`python -m pip install pyttsx3`) to enable voiceover;
-   it is the one skipped test.
+1. Owner action: create Meta app credentials to exercise the Instagram flow.
+2. Owner action: create a Google OAuth client to exercise the YouTube flow.
+3. Owner approval: apply the public GitHub profile preview (currently zero
+   public repos, so the preview is deliberately empty).
+4. Optional: `python -m pip install pyttsx3` to enable the voiceover test.
 
 ## Key decisions already made (do not re-litigate)
 
@@ -57,10 +58,12 @@ The application is functional: 62 API routes, 24 tables, 10 dashboard pages,
 - Voiceover: `pyttsx3` (Windows SAPI, offline). Subtitles: SRT from script cues.
 - Job discovery: RemoteOK + Remotive public JSON APIs (permitted, attributed, cached).
 - Trends: Hacker News Algolia public API (+ public Reddit JSON).
-- YouTube OAuth: manual authorization-code flow with `httpx` (no Google client library).
+- YouTube/Meta OAuth: manual authorization-code flows with `httpx` (no vendor SDK).
 - Credentials: gitignored `data/credentials.json`; API returns presence only.
 - AI fallback: deterministic template engine, always labelled
-  `generated_by: fallback|ollama` — never dressed up as model output.
+  `generated_by: fallback` — never dressed up as model output.
+- DeepSeek's free chat website is **not** an API; NEXUS never scrapes it and
+  never requires a DeepSeek key.
 - Approvals are **single-use** and payload-hashed; kinds must be declared in
   `approvals.GATED_KINDS` (or start with `account.delete.`) or the call raises.
 
@@ -69,12 +72,14 @@ The application is functional: 62 API routes, 24 tables, 10 dashboard pages,
 - **PyPI and the npm registry are often unreachable here** (timeouts); GitHub works.
   `python -m pip download <pkg>` with `--timeout 60` eventually succeeds via cache —
   short timeouts fail. `uvicorn` was installed that way (0.54.0).
-- Ollama not running by default → health degrades gracefully, UI shows "Ollama off".
+- Ollama needs an explicit `ollama serve`; the CLI's `ollama list` also boots it but
+  blocks the calling shell. Running it as a background job with inherited stdio works.
 - `pyttsx3` cannot be installed on this Python (missing `comtypes`/`win32com`) →
   voiceover returns `tts_unavailable`; the test skips rather than failing.
-- `psutil` disk usage for `C:\` reports ~85% used / 141 GB free at time of writing.
-- Background `pip install` via the job runner can hang silently; prefer explicit
-  `pip download` then `pip install <wheel>` with generous timeouts.
+- The frontend build sandbox denies Node child processes with piped stdio, so the
+  stock esbuild service fails. `frontend/scripts/ensure-esbuild-inprocess.mjs`
+  patches the esbuild entry to run the WebAssembly build in-process; `build` and
+  `dev` npm scripts run it first. Unrestricted machines are unaffected.
 - Running uvicorn as a detached `Start-Process` produced no logs; run it through a
   background job with inherited stdio instead (that works reliably).
 
@@ -92,16 +97,19 @@ git -c "credential.helper=" -c "http.extraHeader=Authorization: Basic $b64" push
 $b64 = $null
 ```
 
+Note: plain `git push origin main` also worked in later sessions once the
+remote was configured with the gh credential helper; try it first.
+
 Gotchas learned: `[Text.Encoding]::UTF8(...)` is invalid PowerShell (use `.UTF8.GetBytes(...)`) —
 a silent non-terminating error there leaves `$b64` empty and push falls back to prompting.
-Repo created via `gh repo create nexus-ai --private --source . --remote origin` (works even
-though its prompt script errors). Verified: `gh api repos/shahid0219/nexus-ai` → private, main.
 
 Local commit identity must be explicit:
 `git -c user.name="shahid0219" -c user.email="shahid0219@users.noreply.github.com" commit ...`
 
 ## Session log
 
+- **2026-11-05 session 2:** AI router + Ollama activation + GitHub tooling +
+  Meta OAuth + Settings/GitHub pages; 45 new tests; docs updated.
 - **2026-11-04 session 1:** environment verified; 4 master docs created; GitHub repo
   created and docs pushed (commit `c68645c`). Backend core, 8 modules, full React
   frontend, test suite (31 pass / 1 skip), launcher scripts and all documentation

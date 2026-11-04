@@ -14,7 +14,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_fallback, approvals, config, credentials, db, ollama_client, process
+from .. import activity, ai_router, ai_fallback, approvals, config, credentials, db, ollama_client, process
 from ..security import ApprovalRequired, NexusError, clamp, now_iso, sanitize_filename
 
 router = APIRouter(prefix="/api/youtube", tags=["youtube"])
@@ -38,7 +38,7 @@ class TopicIn(BaseModel):
 
 @router.post("/topics")
 def topics(body: TopicIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Suggest {body.count} YouTube video topics for: {body.niche}",
         module="youtube.topics",
         fallback=lambda: json.dumps(ai_fallback.topics(body.niche, body.count),
@@ -61,7 +61,7 @@ class ScriptIn(BaseModel):
 
 @router.post("/script")
 def script(body: ScriptIn):
-    result = ollama_client.generate(
+    result = ai_router.generate(
         f"Write a YouTube {'Short (<=60s)' if body.type == 'short' else 'long-form'} "
         f"script about: {body.topic}. Notes: {body.notes or 'none'}",
         module="youtube.script",

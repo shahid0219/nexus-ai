@@ -18,6 +18,7 @@ GATED_KINDS = {
     "apply.linkedin",        # linkedin.py   — hand an application off for submission
     "delete.data",           # instagram.py  — delete a calendar entry
     "revenue.record",        # monetisation.py — record money in
+    "github.profile.update", # github.py     — edit the public profile / README
 }
 GATED_PREFIXES = ("account.delete.",)   # accounts.py — delete stored credentials
 

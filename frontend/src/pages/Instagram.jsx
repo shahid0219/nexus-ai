@@ -35,8 +35,13 @@ export default function Instagram() {
   const [pub, setPub] = useState({ caption: '', media_url: '' })
   const [entry, setEntry] = useState({ date: new Date().toISOString().slice(0, 10), title: '', brief: '' })
   const [cursor, setCursor] = useState(() => new Date())
+  const [meta, setMeta] = useState({ app_id: '', app_secret: '', ig_user_id: '' })
+  const [code, setCode] = useState('')
+  const [authUrl, setAuthUrl] = useState('')
+  const [identity, setIdentity] = useState(null)
   const cal = useLoad(() => api.get('/api/instagram/calendar'), [])
   const analytics = useLoad(() => api.get('/api/instagram/analytics'), [])
+  const oauth = useLoad(() => api.get('/api/instagram/oauth/status'), [])
 
   const entries = Array.isArray(cal.data) ? cal.data : (cal.data?.entries || [])
 
@@ -99,6 +104,7 @@ export default function Instagram() {
       <Tabs value={tab} onChange={setTab} tabs={[
         { id: 'create', label: 'Create' },
         { id: 'calendar', label: `Calendar${entries.length ? ` (${entries.length})` : ''}` },
+        { id: 'connection', label: 'Connection' },
         { id: 'analytics', label: 'Analytics' },
       ]} />
 
@@ -243,6 +249,118 @@ export default function Instagram() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      {tab === 'connection' && (
+        <>
+          <Card title="Meta app (required for publishing + insights)">
+            <p className="dim">
+              Create an app at <span className="mono">developers.facebook.com</span>, add
+              the Instagram Graph API product, and use this exact redirect URI:
+              <br /><span className="mono">https://www.facebook.com/connect/login_success.html</span>
+            </p>
+            <p className="dim">
+              Publishing needs an Instagram <strong>Business or Creator</strong> account
+              linked to a Facebook Page you administer. Personal accounts cannot publish
+              through the API — content prep still works without it.
+            </p>
+            <dl className="kv">
+              <dt>Status</dt>
+              <dd><Badge tone={oauth.data?.authorized ? 'ok' : 'warn'}>{oauth.data?.status || '—'}</Badge></dd>
+              <dt>App configured</dt><dd>{oauth.data?.app_configured ? 'yes' : 'no'}</dd>
+              <dt>IG account id</dt><dd>{oauth.data?.has_ig_user_id ? 'stored' : 'missing'}</dd>
+              <dt>Scopes</dt><dd className="mono">{oauth.data?.scopes || '—'}</dd>
+            </dl>
+            <div className="grid grid-2 mt">
+              <Field label="Meta app id">
+                <Input value={meta.app_id} onChange={(e) => setMeta({ ...meta, app_id: e.target.value })} />
+              </Field>
+              <Field label="Meta app secret" hint="Stored locally; never returned by the API.">
+                <Input type="password" autoComplete="off" value={meta.app_secret}
+                       onChange={(e) => setMeta({ ...meta, app_secret: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Instagram business account id (optional — auto-detected later)">
+              <Input value={meta.ig_user_id} onChange={(e) => setMeta({ ...meta, ig_user_id: e.target.value })} />
+            </Field>
+            <div className="row mt">
+              <Btn busy={busy} disabled={!meta.app_id.trim() || meta.app_secret.trim().length < 8}
+                   onClick={async () => {
+                     setBusy(true); setErr(null)
+                     try {
+                       await api.post('/api/instagram/oauth/configure',
+                         { app_id: meta.app_id, app_secret: meta.app_secret,
+                           ig_user_id: meta.ig_user_id || null })
+                       notice('Meta app credentials stored locally.', 'ok')
+                       oauth.reload()
+                     } catch (e) { setErr(e) } finally { setBusy(false) }
+                   }}>Save app credentials</Btn>
+            </div>
+          </Card>
+
+          <Card title="Authorise Instagram">
+            <div className="row">
+              <Btn busy={busy} disabled={!oauth.data?.app_configured}
+                   onClick={async () => {
+                     setBusy(true); setErr(null)
+                     try {
+                       const d = await api.get('/api/instagram/oauth/start')
+                       setAuthUrl(d.auth_url)
+                       notice('Open the authorisation URL, then paste the full redirect URL back here.', 'info')
+                       window.open(d.auth_url, '_blank', 'noopener')
+                     } catch (e) { setErr(e) } finally { setBusy(false) }
+                   }}>Start authorisation</Btn>
+              {authUrl && <a className="btn btn-ghost" href={authUrl} target="_blank" rel="noreferrer">Reopen URL</a>}
+            </div>
+            <Field label="Redirect URL or code"
+                   hint="Paste the whole URL you were redirected to; NEXUS extracts ?code=…">
+              <Input value={code} onChange={(e) => setCode(e.target.value)}
+                     placeholder="https://www.facebook.com/connect/login_success.html?code=…" />
+            </Field>
+            <div className="row">
+              <Btn variant="ghost" busy={busy} disabled={!code.trim()}
+                   onClick={async () => {
+                     setBusy(true); setErr(null)
+                     try {
+                       const raw = code.trim()
+                       const extracted = /[?&]code=([^&]+)/.exec(raw)
+                       const value = extracted ? decodeURIComponent(extracted[1]) : raw
+                       const d = await api.post('/api/instagram/oauth/callback', { code: value })
+                       setIdentity(d.identity || null)
+                       setCode('')
+                       oauth.reload(); analytics.reload()
+                       notice(d.identity?.ok
+                         ? 'Connected: Instagram account verified.'
+                         : `Token stored, but verification failed: ${d.identity?.reason || 'unknown'}`, d.identity?.ok ? 'ok' : 'warn')
+                     } catch (e) { setErr(e) } finally { setBusy(false) }
+                   }}>Submit code</Btn>
+              <Btn variant="ghost" busy={busy}
+                   onClick={async () => {
+                     setBusy(true); setErr(null)
+                     try { setIdentity(await api.get('/api/instagram/oauth/verify')) }
+                     catch (e) { setErr(e) } finally { setBusy(false) }
+                   }}>Verify identity &amp; permissions</Btn>
+            </div>
+            {identity && (
+              <div className="stack mt">
+                <div className="row">
+                  <Badge tone={identity.ok ? 'ok' : 'warn'}>{identity.ok ? 'verified' : 'blocked'}</Badge>
+                  {identity.facebook_user && <Badge>{identity.facebook_user}</Badge>}
+                  {identity.blocked_by_permission && <Badge tone="err">blocked_by_permission</Badge>}
+                </div>
+                {identity.reason && <p className="dim">{identity.reason}</p>}
+                {identity.instagram_accounts?.length > 0 && (
+                  <p className="dim">
+                    Instagram accounts: {identity.instagram_accounts.map((a) => `${a.page} → ${a.ig_user_id}`).join(', ')}
+                  </p>
+                )}
+                {identity.missing_permissions?.length > 0 && (
+                  <p className="dim">Missing: {identity.missing_permissions.join(', ')}</p>
+                )}
               </div>
             )}
           </Card>

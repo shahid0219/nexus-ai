@@ -10,6 +10,8 @@ import Content from './pages/Content.jsx'
 import Monetisation from './pages/Monetisation.jsx'
 import Automation from './pages/Automation.jsx'
 import Accounts from './pages/Accounts.jsx'
+import Settings from './pages/Settings.jsx'
+import GitHubPage from './pages/GitHubPage.jsx'
 import Logs from './pages/Logs.jsx'
 
 const NAV = [
@@ -22,6 +24,8 @@ const NAV = [
   { to: '/monetisation', label: 'Monetisation', ico: '¤' },
   { to: '/automation', label: 'Automation', ico: '⚙' },
   { to: '/accounts', label: 'Accounts', ico: '⚿' },
+  { to: '/settings', label: 'AI Settings', ico: '✦' },
+  { to: '/github', label: 'GitHub', ico: '◉' },
   { to: '/logs', label: 'Logs & Tasks', ico: '≡' },
 ]
 
@@ -110,6 +114,8 @@ export default function App() {
             <Route path="/monetisation" element={<Monetisation />} />
             <Route path="/automation" element={<Automation />} />
             <Route path="/accounts" element={<Accounts />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/github" element={<GitHubPage />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>

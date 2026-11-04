@@ -1,8 +1,6 @@
 # TASKS.md — NEXUS AI implementation checklist
 
-Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & verified.
-
-## Phase 1 — Documentation
+Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & verified.## Phase 1 — Documentation
 - [x] P0 `NEXUS_MASTER_SPEC.md`
 - [x] P0 `PROJECT_STATE.md`
 - [x] P0 `TASKS.md`
@@ -65,8 +63,34 @@ Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & 
 
 ## Phase 10 — Ship
 - [x] P0 `pytest` green (54 passed, 1 environment skip); `npm run build` green; live smoke test
-- [ ] P0 Push all source, verify `gh api repos/shahid0219/nexus-ai`
+- [x] P0 Push all source, verify `gh api repos/shahid0219/nexus-ai`
 - [x] P0 Update `PROJECT_STATE.md` + this checklist
+
+## Phase 11 — Remediation & activation (2026-11-05)
+- [x] P0 AI provider router used by all modules (registry, order, health)
+- [x] P0 Per-request failover: quota/auth/404/network classified, cooldowns persisted
+- [x] P0 Size-aware Ollama model selection (never loads a model that cannot fit)
+- [x] P0 Ollama started + verified with real inference (`qwen2.5-coder:3b`)
+- [x] P0 Truthful metadata on every generation (provider, model, tokens, attempts, ts)
+- [x] P0 SSE streaming endpoint with cancellation-safe final event
+- [x] P0 Test-all-providers action that never consumes generation quota
+- [x] P0 AI Settings page (priority, keys, health, live generate)
+- [x] P0 GitHub status endpoint + dashboard page
+- [x] P0 Secret scanner (10 patterns + forbidden paths) blocking commit and push
+- [x] P0 Safe commit endpoint with explicit path list and staged-diff rescan
+- [x] P0 Remote verification (local HEAD vs origin HEAD) endpoint
+- [x] P0 Public profile preview; applying changes needs `github.profile.update` approval
+- [x] P0 Meta OAuth: configure, start, callback, long-lived token, identity verify
+- [x] P0 Instagram Connection tab with permission/account-type states
+- [x] P0 Dashboard shows the active AI provider
+- [x] P0 45 new tests (19 router, 15 github, 12 meta oauth) → 99 passing
+- [x] P0 Real FFmpeg render validated with ffprobe
+- [x] P0 Scheduler restart recovery verified against persisted state
+- [x] P0 Docs updated (TEST_REPORT, CHANGELOG, PROJECT_STATE, TASKS)
+- [ ] P1 Owner: create Meta app credentials to run the live Instagram flow
+- [ ] P1 Owner: create a Google OAuth client to run the live YouTube flow
+- [ ] P1 Owner approval: apply the public GitHub profile changes
+- [ ] P2 `pyttsx3` install to unskip the voiceover test
 
 ## Backlog (P2)
 - [x] P2 Optional `ollama pull` helper in start script

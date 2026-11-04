@@ -143,6 +143,14 @@ export default function Dashboard() {
                 <Badge>uptime {secs(h.uptime_s)}</Badge>
                 <Badge tone={h.frontend_built ? 'ok' : 'warn'}>frontend {h.frontend_built ? 'built' : 'not built'}</Badge>
               </div>
+              {sys.data?.ai_provider && (
+                <p className="dim">
+                  Active provider: <strong>{sys.data.ai_provider.active_label}</strong>
+                  {sys.data.ai_provider.active === 'fallback' && ' — no model usable, templates in use'}
+                  {' · '}
+                  <Link className="link" to="/settings">manage →</Link>
+                </p>
+              )}
               <div>
                 <h3>Models</h3>
                 {(oll.models || []).length === 0 && <Empty>No models reported — run <span className="mono">ollama pull</span> to add one.</Empty>}

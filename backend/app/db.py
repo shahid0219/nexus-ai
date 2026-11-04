@@ -85,6 +85,9 @@ CREATE TABLE IF NOT EXISTS automation_runs(
 CREATE TABLE IF NOT EXISTS reports(
   id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, kind TEXT NOT NULL,
   path TEXT NOT NULL, summary TEXT);
+CREATE TABLE IF NOT EXISTS ai_provider_state(
+  provider TEXT PRIMARY KEY, cooldown_until REAL NOT NULL DEFAULT 0,
+  last_error TEXT, last_error_class TEXT, last_ok_ts TEXT, last_latency_ms INTEGER);
 CREATE TABLE IF NOT EXISTS oauth_states(
   provider TEXT PRIMARY KEY, state TEXT NOT NULL, created_ts TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending', detail TEXT);

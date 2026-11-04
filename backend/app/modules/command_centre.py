@@ -8,7 +8,7 @@ import psutil
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from .. import activity, approvals, config, db, ollama_client, process
+from .. import activity, ai_router, approvals, config, db, ollama_client, process
 from ..security import ApprovalRequired, NexusError, clamp, redact
 
 router = APIRouter(prefix="/api", tags=["command"])
@@ -65,6 +65,8 @@ def system_status():
         disk_pct, disk_free = disk.percent, disk.free
     except OSError:
         disk_pct, disk_free = None, None
+    ol = ollama_client.health()
+    ai = ai_router.status()
     return {
         "platform": f"{platform.system()} {platform.release()} ({platform.machine()})",
         "python": sys.version.split()[0],
@@ -80,9 +82,11 @@ def system_status():
             "git": shutil.which("git") is not None,
             "gh": shutil.which("gh") is not None,
             "ollama": _ollama_version(),
-            "ollama_running": ollama_client.health()["available"],
+            "ollama_running": ol["available"],
         },
-        "ai_models": ollama_client.health()["models"],
+        "ai_models": ol["models"],
+        "ai_provider": {"active": ai["active"], "active_label": ai["active_label"],
+                        "order": ai["order"]},
         "frontend_built": config.frontend_built(),
         "db_size": db.db_size(),
         "uptime_s": int(time.time() - _START),
@@ -190,7 +194,7 @@ class AiRequest(BaseModel):
 @router.post("/ai/generate")
 def ai_generate(body: AiRequest):
     from .. import ai_fallback
-    result = ollama_client.generate(
+    result = ai_router.generate(
         body.prompt, module=body.module, system=body.system,
         max_tokens=body.max_tokens,
         fallback=lambda: ai_fallback.general(body.prompt))
@@ -198,3 +202,100 @@ def ai_generate(body: AiRequest):
         raise NexusError("AI produced no output and no fallback was available",
                          code="ai_unavailable", status=503)
     return result
+
+
+# ------------------------------------------------------------ ai router -----
+@router.get("/ai/status")
+def ai_status():
+    return ai_router.status()
+
+
+@router.post("/ai/test")
+def ai_test():
+    return ai_router.test_all()
+
+
+class AiOrderIn(BaseModel):
+    order: list[str] = Field(min_length=1, max_length=12)
+
+
+@router.post("/ai/order")
+def ai_order(body: AiOrderIn):
+    return {"order": ai_router.set_order(body.order),
+            "active": ai_router.status()["active"]}
+
+
+class AiModelIn(BaseModel):
+    provider: str = Field(min_length=2, max_length=40)
+    model: str = Field(default="", max_length=120)
+
+
+@router.post("/ai/model")
+def ai_model(body: AiModelIn):
+    if body.provider not in ai_router.PROVIDERS:
+        raise NexusError(f"unknown provider: {body.provider}", code="unknown_provider",
+                         status=404)
+    return {"override": ai_router.set_model_override(body.provider, body.model),
+            "status": ai_router.status()}
+
+
+class AiProviderKeyIn(BaseModel):
+    provider: str = Field(min_length=2, max_length=40)
+    api_key: str = Field(min_length=8, max_length=400)
+
+
+@router.post("/ai/provider/credentials")
+def ai_provider_credentials(body: AiProviderKeyIn):
+    """Store a remote provider key. The key is never echoed back."""
+    from .. import credentials
+    provider = body.provider.lower().strip()
+    spec = ai_router.PROVIDERS.get(provider)
+    if not spec or spec.kind != "remote":
+        raise NexusError(f"{provider} is not a remote provider", code="invalid_provider",
+                         status=400)
+    view = credentials.set_provider(provider, {"api_key": body.api_key})
+    activity.info("ai", f"{provider} API key stored locally")
+    return {"code": "stored", "provider": provider,
+            "present": view.get("present"), "has_token": view.get("has_token"),
+            "note": "Key stored in data/credentials.json (gitignored) and never returned."}
+
+
+@router.delete("/ai/provider/{provider}/credentials")
+def ai_provider_delete(provider: str):
+    from .. import credentials
+    provider = provider.lower().strip()
+    if provider not in ai_router.PROVIDERS:
+        raise NexusError(f"unknown provider: {provider}", code="unknown_provider",
+                         status=404)
+    try:
+        approvals.require_approved(
+            f"account.delete.{provider}",
+            f"Delete stored {provider} AI credentials", {"provider": provider})
+    except ApprovalRequired as exc:
+        return {"code": "approval_required", "approval_id": exc.approval_id,
+                "kind": exc.kind,
+                "message": "Deleting credentials requires owner approval. Approve, then retry."}
+    credentials.delete_provider(provider)
+    activity.info("ai", f"{provider} AI credentials deleted")
+    return {"code": "deleted", "provider": provider}
+
+
+@router.post("/ai/stream")
+def ai_stream(body: AiRequest):
+    """Server-sent events. Each line is `data: <json>`; ends with a done event."""
+    from fastapi.responses import StreamingResponse
+
+    def events():
+        import json as _json
+        try:
+            for chunk in ai_router.stream(body.prompt, module=body.module,
+                                          system=body.system,
+                                          max_tokens=body.max_tokens):
+                yield f"data: {_json.dumps(chunk, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # never leak a stack trace to the browser
+            yield ("data: " + _json.dumps({"error": redact(str(exc)[:200])}) + "\n\n")
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})

@@ -20,21 +20,39 @@ def health() -> dict:
     try:
         r = httpx.get(f"{config.OLLAMA_URL}/api/tags", timeout=2.0)
         if r.status_code == 200:
-            models = [m.get("name", "") for m in r.json().get("models", [])]
-            return {"available": True, "models": models, "url": config.OLLAMA_URL}
+            raw = r.json().get("models", [])
+            models = [m.get("name", "") for m in raw]
+            sizes = {}
+            for m in raw:
+                name = m.get("name", "")
+                if name:
+                    sizes[name] = round((m.get("size") or 0) / 2**30, 1)
+            return {"available": True, "models": models, "sizes_gb": sizes,
+                    "url": config.OLLAMA_URL}
     except Exception:
         pass
-    return {"available": False, "models": [], "url": config.OLLAMA_URL}
+    return {"available": False, "models": [], "sizes_gb": {}, "url": config.OLLAMA_URL}
 
 
-def _pick_model(available_models: list[str]) -> str | None:
-    lowered = [m.lower() for m in available_models]
+def _fits(name: str, sizes: dict[str, float]) -> bool:
+    size = sizes.get(name)
+    return size is None or size <= config.AI_MAX_MODEL_GB
+
+
+def _pick_model(available_models: list[str],
+                sizes: dict[str, float] | None = None) -> str | None:
+    """Pick the best model that actually fits the 4GB-VRAM policy."""
+    sizes = sizes if sizes is not None else health().get("sizes_gb", {})
+    fitting = [m for m in available_models if _fits(m, sizes)]
+    if not fitting:
+        return None  # never load something that cannot fit
+    lowered = [m.lower() for m in fitting]
     for wanted in config.PREFERRED_MODELS:
         base = wanted.split(":")[0]
         for i, have in enumerate(lowered):
             if have == wanted.lower() or have.startswith(base + ":"):
-                return available_models[i]
-    return available_models[0] if available_models else None
+                return fitting[i]
+    return min(fitting, key=lambda m: sizes.get(m, 999))
 
 
 def generate(prompt: str, module: str, system: str | None = None,
@@ -52,7 +70,7 @@ def generate(prompt: str, module: str, system: str | None = None,
     status = "ok"
 
     if h["available"]:
-        model = _pick_model(h["models"])
+        model = _pick_model(h["models"], h.get("sizes_gb"))
         if model:
             try:
                 with _ai_lock:  # one request at a time on 4GB VRAM
@@ -122,7 +140,7 @@ def structured(prompt: str, module: str, fallback_obj, system: str | None = None
     text = None
     status = "ok"
     if h["available"]:
-        model = _pick_model(h["models"])
+        model = _pick_model(h["models"], h.get("sizes_gb"))
         if model:
             try:
                 with _ai_lock:
