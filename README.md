@@ -84,7 +84,7 @@ needs **your** credentials; nothing is mocked to look functional.
 | Monetisation: products, leads, affiliates, sponsorships | **implemented** | date-stamped affiliate directory |
 | Monetisation: revenue | **implemented** | `verified=1` only with a payment reference |
 | Monetisation: CSV export | **implemented** | |
-| Automation: 5 scheduled jobs + retries + reports | **implemented** | scheduler thread, exponential backoff |
+| Automation: 5 scheduled jobs + retries + reports | **implemented** | scheduler thread, 8 s feed deadline, exponential backoff |
 | Account Centre | **implemented** | GitHub via `gh`, Meta token, Google OAuth, LinkedIn status |
 
 **Deliberately not implemented** (would require bypassing protections or fabricating data):
@@ -137,9 +137,9 @@ nexus-ai/
 python -m pytest -q
 ```
 
-28 tests pass, 1 skips when Windows SAPI is unavailable. See `TEST_REPORT.md`
+54 tests pass; 1 skips when Windows SAPI is unavailable and 2 network-dependent
+feed tests skip themselves when an upstream is unreachable. See `TEST_REPORT.md`
 for the recorded run, what each test proves, and the full API surface.
-
 ---
 
 ## Configuration

@@ -2,8 +2,10 @@
 
 **Run date:** 2026-11-04
 **Command:** `python -m pytest -q` (from project root)
-**Result:** **53 passed, 2 skipped** in 77.56 s
-(1 environment skip for Windows SAPI, 1 network skip when a public feed is unreachable)
+**Result:** **54 passed, 1 skipped** in 80.54 s
+(the skip is Windows SAPI voiceover, unavailable on this machine; the two
+network-dependent feed tests skip themselves instead of failing when an
+upstream is unreachable)
 
 Environment at time of run:
 
@@ -110,11 +112,22 @@ unreachable and no cache exists — the assertion accepts exactly that shape and
 nothing else.
 
 ### 11. Feed resilience (measured)
-Both feed modules now fetch concurrently with short timeouts
-(`ThreadPoolExecutor`, 10 s connect-aware timeout). Measured on this machine:
-`/api/linkedin/jobs` → 200 in **0.0 s** (cache hit), `/api/content/trends` →
-200 in **13.1 s** cold with one upstream down. Previously a single dead host
-could block the request for 30 s.
+Both feed modules fetch concurrently and are hard-capped per source: a socket
+timeout of 6 s plus an 8 s deadline on the future. The pool is shut down with
+`wait=False, cancel_futures=True`, so a stuck TLS handshake can never block the
+HTTP response.
+
+Measured with Reddit unreachable (TLS handshake timeout) and Hacker News healthy:
+
+| Call | Latency | Sources |
+|---|---|---|
+| `/api/content/trends` #1 | 9.6 s | hackernews ok, reddit ConnectTimeout |
+| `/api/content/trends` #2 | 8.3 s | hackernews ok, reddit ConnectTimeout |
+| `/api/content/trends` #3 | 6.3 s | hackernews ok, reddit ConnectTimeout |
+| `/api/linkedin/jobs` | 0.0 s | cache hit, HTTP 200 |
+
+Before the fix the same conditions took up to 35 s. The endpoint always returns
+200 with a per-source `ok` flag rather than failing the whole request.
 
 ---
 

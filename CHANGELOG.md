@@ -93,9 +93,10 @@ by the test suite unless explicitly marked otherwise.
 - `Bearer <token>` values were only partially redacted.
 - `/api/automation/runs` returned HTTP 500 whenever a run existed: an `int` was
   passed where the DB helper expected a params tuple.
-- Job and trend feeds could stall a request for 30 s when an upstream host was
-  unreachable; both now fetch concurrently with short timeouts and fall back to
-  cache (or an honest `network_error` 502 when no cache exists).
+- Job and trend feeds could stall a request for 30–35 s when an upstream host
+  was unreachable; both now fetch concurrently under a hard 8 s deadline,
+  shut the pool down without waiting, and fall back to cache (or an honest
+  `network_error` 502 when no cache exists).
 
 ### Known limitations (unchanged, by design)
 - Instagram and YouTube analytics stay `requires_auth` until real owner

@@ -22,7 +22,9 @@ FEEDS = {
     "remotive": "https://api.remotive.com/api/virtual-jobs",
 }
 CACHE_MINUTES = 30
-HTTP_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
+FEED_TIMEOUT = 6.0                                  # per-socket timeout
+FEED_DEADLINE = 8.0                                 # hard cap per source
+HTTP_TIMEOUT = httpx.Timeout(FEED_TIMEOUT, connect=3.0)
 UA = {"User-Agent": "NEXUS-AI/1.0 (local research tool; +https://github.com/shahid0219/nexus-ai)"}
 
 
@@ -136,16 +138,21 @@ def _fetch_remotive(search: str | None = None) -> tuple[list[dict], dict]:
 def _fetch_feeds(search: str | None = None) -> tuple[list[dict], list[dict]]:
     """Fetch both permitted feeds concurrently so an unreachable host cannot stall the API."""
     jobs, sources = [], []
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="feed") as pool:
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="feed")
+    try:
         futures = [pool.submit(_fetch_remoteok, search),
                    pool.submit(_fetch_remotive, search)]
         for fut in futures:
             try:
-                got, src = fut.result(timeout=HTTP_TIMEOUT[1] + 3)
+                got, src = fut.result(timeout=FEED_DEADLINE)
             except Exception as exc:
-                continue
+                got, src = [], {"name": "feed", "ok": False,
+                                "error": ("timeout" if isinstance(exc, TimeoutError)
+                                          else exc.__class__.__name__), "count": 0}
             jobs.extend(got)
             sources.append(src)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     return jobs, sources
 
 

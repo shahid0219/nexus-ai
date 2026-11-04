@@ -64,7 +64,7 @@ Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & 
 - [x] P0 Real test run → `TEST_REPORT.md`
 
 ## Phase 10 — Ship
-- [x] P0 `pytest` green (53 passed, 2 environment/network skips); `npm run build` green; live smoke test
+- [x] P0 `pytest` green (54 passed, 1 environment skip); `npm run build` green; live smoke test
 - [ ] P0 Push all source, verify `gh api repos/shahid0219/nexus-ai`
 - [x] P0 Update `PROJECT_STATE.md` + this checklist
 
