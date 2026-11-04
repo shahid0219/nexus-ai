@@ -144,6 +144,35 @@ dist/assets/index-DJEx9PYY.js   220.05 kB │ gzip: 67.29 kB
 
 The bundle is self-contained: no CDN, no external fonts, no chart or UI library.
 
+## Clean-room verification
+
+The repository was cloned fresh from GitHub into an empty temp directory to prove
+the repo alone is sufficient:
+
+| Step | Result |
+|---|---|
+| `git clone` | 55 files, **no `data/` directory** (runtime state correctly untracked) |
+| `python -m pytest -q` | **54 passed, 1 skipped** in 55.68 s |
+| `python -m uvicorn app.main:app ...` | boots, `frontend_built: false` until built |
+| `GET /` before build | correct "dashboard is not built yet" page, not an error |
+| `npm install && npm run build` | 66 packages, 46 modules, `dist/index.html` + 2 assets |
+| `GET /api/health`, `/api/stats`, `/api/automation/jobs`, `/` | all 200 |
+
+## UI verification (headless Chrome screenshots)
+
+Rendered `http://127.0.0.1:8777` with Chrome `--headless=new` at 1440×1000:
+
+- **Dashboard** — live values (`CPU 48.6%`, `RAM 15.3 GB · 84.8% used`,
+  `ffmpeg 8.1.1-full_build`, `ollama ✗`), version/uptime pill in the top bar.
+- **Automation** — all 5 jobs with real intervals and last-run timestamps,
+  empty states for runs/reports.
+- **Account Centre** — GitHub `connected` (as `shahid0219`, token never read),
+  Meta `awaiting_configuration`, Google `awaiting_configuration`,
+  LinkedIn `not_applicable` with the no-API explanation.
+
+The screenshots confirm the frontend actually mounts and talks to the API —
+a green `vite build` alone would not prove that.
+
 ## Live smoke test
 
 Server started with
