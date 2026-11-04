@@ -2,6 +2,7 @@
 research (labelled hypotheses), platform-specific content generation."""
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import httpx
@@ -14,6 +15,7 @@ from ..security import NexusError, now_iso
 router = APIRouter(prefix="/api/content", tags=["content"])
 
 UA = {"User-Agent": "NEXUS-AI/1.0 (local research tool; +github.com/shahid0219/nexus-ai)"}
+FEED_TIMEOUT = 10.0
 PLATFORM_LIMITS = {"instagram": 2200, "youtube": 5000, "linkedin": 3000, "x": 280}
 
 STOPWORDS = set("""a an and are as at be by for from has have how i in is it its of on or
@@ -25,7 +27,8 @@ one two three top best""".split())
 
 def _hn_top() -> list[dict]:
     r = httpx.get("https://hn.algolia.com/api/v1/search",
-                  params={"tags": "front_page", "hitsPerPage": 25}, headers=UA, timeout=15)
+                  params={"tags": "front_page", "hitsPerPage": 25}, headers=UA,
+                  timeout=FEED_TIMEOUT)
     r.raise_for_status()
     out = []
     for h in r.json().get("hits", []):
@@ -38,7 +41,7 @@ def _hn_top() -> list[dict]:
 
 def _reddit_top(sub: str = "technology") -> list[dict]:
     r = httpx.get(f"https://www.reddit.com/r/{sub}/top.json",
-                  params={"limit": 20, "t": "day"}, headers=UA, timeout=15)
+                  params={"limit": 20, "t": "day"}, headers=UA, timeout=FEED_TIMEOUT)
     r.raise_for_status()
     out = []
     for child in r.json().get("data", {}).get("children", []):
@@ -85,18 +88,17 @@ def _cluster(items: list[dict]) -> list[dict]:
 @router.get("/trends")
 def trends():
     items, sources = [], []
-    try:
-        items += _hn_top()
-        sources.append({"name": "hackernews", "ok": True, "count": 25})
-    except Exception as exc:
-        sources.append({"name": "hackernews", "ok": False,
-                        "error": exc.__class__.__name__, "count": 0})
-    try:
-        items += _reddit_top()
-        sources.append({"name": "reddit", "ok": True, "count": 20})
-    except Exception as exc:
-        sources.append({"name": "reddit", "ok": False, "error": exc.__class__.__name__,
-                        "count": 0})
+    fetchers = [("hackernews", _hn_top, 25), ("reddit", _reddit_top, 20)]
+    with ThreadPoolExecutor(max_workers=len(fetchers), thread_name_prefix="trend") as pool:
+        futures = [(name, want, pool.submit(fn)) for name, fn, want in fetchers]
+        for name, want, fut in futures:
+            try:
+                got = fut.result(timeout=FEED_TIMEOUT + 2)
+                items += got
+                sources.append({"name": name, "ok": True, "count": len(got) or want})
+            except Exception as exc:
+                sources.append({"name": name, "ok": False,
+                                "error": exc.__class__.__name__, "count": 0})
     if not items:
         cached = db.query("SELECT * FROM trends_cache ORDER BY id DESC LIMIT 30")
         if cached:

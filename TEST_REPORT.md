@@ -2,7 +2,8 @@
 
 **Run date:** 2026-11-04
 **Command:** `python -m pytest -q` (from project root)
-**Result:** **31 passed, 1 skipped** in 77.12 s
+**Result:** **53 passed, 2 skipped** in 77.56 s
+(1 environment skip for Windows SAPI, 1 network skip when a public feed is unreachable)
 
 Environment at time of run:
 
@@ -33,6 +34,8 @@ suite is meaningful fully offline.
 | `test_system_status` | real psutil CPU/RAM/disk, python version, tool availability |
 | `test_stats_shape` | dashboard counters all present |
 | `test_logs_endpoint` | activity log rows are shaped and redacted |
+
+*(plus 23 parametrised GET liveness checks — see §10)*
 
 ### 2. Honesty guards (6) — no fabricated data, ever
 | Test | Proves |
@@ -93,6 +96,25 @@ suite is meaningful fully offline.
 |---|---|
 | `test_jobs_discovery_endpoint` | RemoteOK/Remotive records carry `source` + `fetched_at` attribution |
 | `test_trends_endpoint` | trend clusters and per-source status are returned |
+
+### 10. GET endpoint liveness (23, parametrised)
+`test_get_endpoint_never_500s` walks every read-only endpoint the dashboard calls
+and asserts no unhandled crash. This caught a real defect during final verification:
+the `/api/automation/runs` handler passed an `int` where the DB helper expected a
+params tuple, returning HTTP 500 as soon as a run existed. Fixed, and now
+regression-guarded.
+
+The two public-feed endpoints (`/api/linkedin/jobs`, `/api/content/trends`) are
+allowed to return an honest **502 `network_error`** when their upstreams are
+unreachable and no cache exists — the assertion accepts exactly that shape and
+nothing else.
+
+### 11. Feed resilience (measured)
+Both feed modules now fetch concurrently with short timeouts
+(`ThreadPoolExecutor`, 10 s connect-aware timeout). Measured on this machine:
+`/api/linkedin/jobs` → 200 in **0.0 s** (cache hit), `/api/content/trends` →
+200 in **13.1 s** cold with one upstream down. Previously a single dead host
+could block the request for 30 s.
 
 ---
 

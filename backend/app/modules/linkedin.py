@@ -6,6 +6,7 @@ feeds (RemoteOK, Remotive) with attribution. CV output contains ONLY facts prese
 in the supplied profile — missing items render as [not provided].
 """
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from fastapi import APIRouter, Query
@@ -21,6 +22,7 @@ FEEDS = {
     "remotive": "https://api.remotive.com/api/virtual-jobs",
 }
 CACHE_MINUTES = 30
+HTTP_TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 UA = {"User-Agent": "NEXUS-AI/1.0 (local research tool; +https://github.com/shahid0219/nexus-ai)"}
 
 
@@ -85,10 +87,10 @@ def _fallback_branding(facts: str, niche: str | None) -> str:
 
 
 # ------------------------------------------------------------------- jobs -----
-def _fetch_feeds(search: str | None = None) -> tuple[list[dict], list[dict]]:
-    jobs, sources = [], []
+def _fetch_remoteok(search: str | None = None) -> tuple[list[dict], dict]:
+    jobs = []
     try:
-        r = httpx.get(FEEDS["remoteok"], headers=UA, timeout=15)
+        r = httpx.get(FEEDS["remoteok"], headers=UA, timeout=HTTP_TIMEOUT)
         r.raise_for_status()
         data = r.json()
         items = data[1:] if isinstance(data, list) and data and isinstance(data[0], dict) \
@@ -103,13 +105,17 @@ def _fetch_feeds(search: str | None = None) -> tuple[list[dict], list[dict]]:
                            if it.get("salary_min") else None),
                 "raw": it,
             })
-        sources.append({"name": "remoteok", "ok": True, "count": len(items)})
+        return jobs, {"name": "remoteok", "ok": True, "count": len(items)}
     except Exception as exc:
-        sources.append({"name": "remoteok", "ok": False, "error": exc.__class__.__name__,
-                        "count": 0})
+        return jobs, {"name": "remoteok", "ok": False, "error": exc.__class__.__name__,
+                      "count": 0}
+
+
+def _fetch_remotive(search: str | None = None) -> tuple[list[dict], dict]:
+    jobs = []
     try:
         params = {"search": search} if search else {}
-        r = httpx.get(FEEDS["remotive"], headers=UA, params=params, timeout=15)
+        r = httpx.get(FEEDS["remotive"], headers=UA, params=params, timeout=HTTP_TIMEOUT)
         r.raise_for_status()
         items = r.json().get("jobs", [])
         for it in items:
@@ -121,10 +127,25 @@ def _fetch_feeds(search: str | None = None) -> tuple[list[dict], list[dict]]:
                 "url": it.get("url"), "tags": ",".join(it.get("tags") or []),
                 "salary": it.get("salary") or None, "raw": it,
             })
-        sources.append({"name": "remotive", "ok": True, "count": len(items)})
+        return jobs, {"name": "remotive", "ok": True, "count": len(items)}
     except Exception as exc:
-        sources.append({"name": "remotive", "ok": False, "error": exc.__class__.__name__,
-                        "count": 0})
+        return jobs, {"name": "remotive", "ok": False, "error": exc.__class__.__name__,
+                      "count": 0}
+
+
+def _fetch_feeds(search: str | None = None) -> tuple[list[dict], list[dict]]:
+    """Fetch both permitted feeds concurrently so an unreachable host cannot stall the API."""
+    jobs, sources = [], []
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="feed") as pool:
+        futures = [pool.submit(_fetch_remoteok, search),
+                   pool.submit(_fetch_remotive, search)]
+        for fut in futures:
+            try:
+                got, src = fut.result(timeout=HTTP_TIMEOUT[1] + 3)
+            except Exception as exc:
+                continue
+            jobs.extend(got)
+            sources.append(src)
     return jobs, sources
 
 

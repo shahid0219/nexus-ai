@@ -252,7 +252,7 @@ def run(body: RunIn):
 @router.get("/runs")
 def runs(limit: int = Query(30, le=200)):
     rows = db.query("SELECT * FROM automation_runs ORDER BY id DESC LIMIT ?",
-                    (clamp(limit, 1, 200, 30)))
+                    (clamp(limit, 1, 200, 30),))
     import json
     for r in rows:
         try:

@@ -28,7 +28,7 @@ The application is functional: 62 API routes, 24 tables, 10 dashboard pages,
 - [x] All 8 modules: `command_centre`, `instagram`, `youtube`, `linkedin`,
       `content`, `monetisation`, `automation`, `accounts`
 - [x] Full React frontend (10 pages) + design system CSS; `npm run build` green
-- [x] `pytest`: **31 passed, 1 skipped** (`TEST_REPORT.md` has the recorded run)
+- [x] `pytest`: **53 passed, 2 skipped** (`TEST_REPORT.md` has the recorded run)
 - [x] `start_nexus.bat`, `stop_nexus.bat`
 - [x] `README.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `TEST_REPORT.md`
 - [x] Live smoke test on `127.0.0.1:8777`: health, status, stats, accounts,

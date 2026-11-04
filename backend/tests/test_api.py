@@ -308,6 +308,33 @@ def test_content_preparation_respects_settings(client):
     assert res["status"] == "ok"
 
 
+# ------------------------------------------------- every GET must be alive -----
+GET_ENDPOINTS = [
+    "/api/health", "/api/system/status", "/api/stats", "/api/tasks?limit=5",
+    "/api/logs?limit=5", "/api/approvals", "/api/accounts",
+    "/api/automation/jobs", "/api/automation/runs?limit=5",
+    "/api/automation/reports", "/api/automation/status",
+    "/api/instagram/calendar", "/api/instagram/analytics",
+    "/api/youtube/oauth/status", "/api/youtube/analytics",
+    "/api/linkedin/applications", "/api/linkedin/jobs",
+    "/api/content/trends",
+    "/api/monetisation/revenue", "/api/monetisation/products",
+    "/api/monetisation/leads", "/api/monetisation/affiliates",
+    "/api/monetisation/sponsorships",
+]
+
+
+@pytest.mark.parametrize("path", GET_ENDPOINTS)
+def test_get_endpoint_never_500s(client, path):
+    """No read endpoint may crash. Feed endpoints may return an honest 502."""
+    r = client.get(path)
+    assert r.status_code != 500, f"{path} -> {r.status_code} {r.text[:300]}"
+    if r.status_code == 502:
+        # Only the two public-feed endpoints may degrade this way, and only openly.
+        assert path in ("/api/linkedin/jobs", "/api/content/trends")
+        assert r.json()["code"] == "network_error"
+
+
 # ---------------------------------------------------------------- network ------
 def _net(fn):
     try:
