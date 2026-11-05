@@ -89,8 +89,28 @@ Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & 
 - [x] P0 Docs updated (TEST_REPORT, CHANGELOG, PROJECT_STATE, TASKS)
 - [ ] P1 Owner: create Meta app credentials to run the live Instagram flow
 - [ ] P1 Owner: create a Google OAuth client to run the live YouTube flow
-- [ ] P1 Owner approval: apply the public GitHub profile changes
+- [x] P0 Owner approval: public GitHub profile README published (`shahid0219/shahid0219`)
+- [ ] P1 Owner: `gh auth refresh -h github.com -s user` to set bio/display name
 - [ ] P2 `pyttsx3` install to unskip the voiceover test
+
+## Phase 10 — Bug fixes & deployment (session 3)
+
+- [x] P0 Fix silent `NameError` in all 5 AI fallbacks (function-local `import json`)
+- [x] P0 Regression tests for the fallback bug (6 tests)
+- [x] P0 Fix FFmpeg/ffprobe discovery when PATH is truncated (WinGet folders)
+- [x] P0 Tool-discovery tests (7 tests)
+- [x] P0 Remove 19 unused backend imports/locals; `pyflakes` at zero
+- [x] P0 Remove 7 unused React imports; frontend static check at zero
+- [x] P0 Full secret + git-history audit before publication
+- [x] P0 Make `shahid0219/nexus-ai` public; verified anonymous read
+- [x] P0 Publish profile README; verified via `git ls-remote`
+- [x] P0 `Dockerfile` (two-stage, non-root, healthcheck, volume)
+- [x] P0 `.dockerignore` and `.gitattributes`
+- [x] P0 `DEPLOYMENT.md` with Windows/Docker/bare-metal/config/security
+- [x] P0 Fix GitHub status 503 in a deployment without git (graceful degradation)
+- [x] P0 Fix hardcoded Windows font paths breaking video render on Linux
+- [x] P0 Deployment regression tests (6 tests) → 119 passing total
+- [x] P0 Container verified: healthy, 16 endpoints, real MP4, restart persistence
 
 ## Backlog (P2)
 - [x] P2 Optional `ollama pull` helper in start script
