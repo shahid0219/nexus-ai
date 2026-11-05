@@ -163,8 +163,21 @@ jobs:
           echo
           curl -fsS http://127.0.0.1:8777/api/ai/status | head -c 400
           echo
-          if [ "$(docker inspect -f '{{.State.Health.Status}}' nexus-ci)" != "healthy" ]; then
-            echo "container did not report healthy"; docker logs nexus-ci; exit 1
+          # The Dockerfile HEALTHCHECK has a start_period, so the status is
+          # "starting" for a short while. Poll instead of reading it once.
+          for i in $(seq 1 40); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' nexus-ci)
+            if [ "$status" = "healthy" ]; then
+              echo "container healthy after ${i} checks"; break
+            fi
+            if [ "$status" = "unhealthy" ]; then
+              echo "container reported unhealthy"; docker logs nexus-ci; exit 1
+            fi
+            sleep 3
+          done
+          final=$(docker inspect -f '{{.State.Health.Status}}' nexus-ci)
+          if [ "$final" != "healthy" ]; then
+            echo "container never became healthy (last: $final)"; docker logs nexus-ci; exit 1
           fi
           docker logs nexus-ci 2>&1 | tail -20
 
