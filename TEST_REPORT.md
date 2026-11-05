@@ -93,6 +93,48 @@ only while the model exists and fits the size policy.
 
 ---
 
+## Session 4 — CI and Pages, verified on GitHub
+
+**CI run `635cda9` — all four jobs green:**
+
+| Job | Result |
+|---|---|
+| Repository integrity and secret scan | success |
+| Backend tests | success |
+| Frontend build | success |
+| Docker image build (incl. container smoke test) | success |
+
+**Pages:** `build_type=workflow`, `https_enforced=true`, `status=built`.
+<https://shahid0219.github.io/nexus-ai/> returns **HTTP 200** and renders the full
+page; `assets/site.css`, `assets/site.js` and `assets/favicon.svg` all return 200
+with correct content types.
+
+### Two real defects CI caught that the local run could not
+
+**1. `process.resolve()` was Windows-only in a subtle way.**
+It used `Path(binary).name`. On Linux that does not treat `\` as a separator, so
+`C:\tools\ffmpeg.exe` stayed whole, matched no allowlisted name, and raised
+`subprocess_not_allowed`. The security test passed on Windows and failed on CI.
+Now it splits on either separator.
+
+**2. The esbuild WebAssembly shim broke the Linux build.**
+`frontend/scripts/ensure-esbuild-inprocess.mjs` exists because *this sandbox*
+denies piped-stdio child processes, so native esbuild gets `spawn EPERM`. On a
+normal Linux runner the native binary works, and the wasm shim fails with
+`Cannot read directory: not implemented on js` while loading `vite.config.js`.
+The shim now applies only where it is needed (non-CI Windows), overridable with
+`NEXUS_ESBUILD_SHIM=0/1`.
+
+### One CI-harness bug (not an application bug)
+
+The first Docker smoke test read `.State.Health.Status` immediately after the API
+answered. Because the Dockerfile `HEALTHCHECK` declares a `start_period`, the
+status was still `starting` at that instant, so the job failed while the app was
+already serving `/api/health` (it answered in 2 s). The step now polls until
+`healthy` or `unhealthy`.
+
+---
+
 ## Deployment verification (2026-11-05, Docker)
 
 The image was built and run on the development machine; nothing below is

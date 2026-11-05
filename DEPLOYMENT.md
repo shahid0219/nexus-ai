@@ -185,10 +185,43 @@ Provider API keys (optional) are stored through the AI Settings page and written
   recorded in the Approval Centre.
 - The subprocess allowlist is `ffmpeg`, `ffprobe`, `gh`, `git` only — no shell.
 
-## 6. What is *not* deployed for you
+## 6. Project website (GitHub Pages)
 
-- **No public hosting.** There is no Render/Railway/Vercel deployment in this repo, by
-  design: those are third-party services, and this project is local-first.
+`site/` is a static project site published to <https://shahid0219.github.io/nexus-ai/>
+by `.github/workflows/pages.yml` on every push that changes `site/`. It uses the
+official `actions/upload-pages-artifact` and `actions/deploy-pages` actions with the
+minimum permissions (`pages: write`, `id-token: write`).
+
+**GitHub Pages hosts the marketing page only. It does not run the Python backend.**
+The application is local-first software you run on your own hardware.
+
+Pages must be set to **Settings → Pages → Source: GitHub Actions** once. This is
+already configured on this repository; a fresh fork needs the one-time switch.
+
+To preview the site locally:
+
+```bash
+python -m http.server 8899 --directory site
+# http://127.0.0.1:8899
+```
+
+## 7. Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+| Job | What it proves |
+|---|---|
+| Backend tests | `pyflakes` is clean; the full pytest suite passes (no model or key needed) |
+| Frontend build | `npm ci` + production build; `dist/index.html` and hashed assets exist |
+| Repository integrity | the project secret scanner finds nothing; no `data/`, `*.db`, `.env`, `node_modules` or `dist` is tracked; the site's markers and assets exist |
+| Docker image build | the image builds, the container starts, `/api/health` answers and the `HEALTHCHECK` reports healthy |
+
+The workflow needs no repository secrets — that is the point of a zero-key design.
+
+## 8. What is *not* deployed for you
+
+- **No public hosting of the application.** Only the static page is published. There
+  is no Render/Railway/Vercel deployment by design: this project is local-first.
 - **No platform credentials.** Instagram and YouTube stay `awaiting_configuration` until
   you create your own Meta app and Google OAuth client.
 - **No bundled model weights.** Pull them yourself: `ollama pull qwen2.5-coder:3b`.
