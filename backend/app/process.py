@@ -12,7 +12,12 @@ def resolve(binary: str) -> str:
     # Accept both bare names and full paths, but only for allowlisted tools.
     for allowed in config.ALLOWED_SUBPROCESSES:
         if name == allowed or name == f"{allowed}.exe":
-            found = shutil.which(allowed)
+            if allowed == "ffmpeg":
+                found = config.ffmpeg_path()
+            elif allowed == "ffprobe":
+                found = config.ffprobe_path()
+            else:
+                found = shutil.which(allowed)
             if found:
                 return found
             raise NexusError(f"{allowed} is not installed or not on PATH",

@@ -4,10 +4,9 @@ The API never returns secret values, only presence/scopes/expiry (SECURITY.md §
 """
 import json
 import os
-from pathlib import Path
 
 from . import config
-from .security import now_iso, redact
+from .security import now_iso
 
 REQUIRED_KEYS = {
     "meta": ["access_token"],

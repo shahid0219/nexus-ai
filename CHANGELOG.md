@@ -3,6 +3,35 @@
 All notable changes to this project. Format loosely follows Keep a Changelog.
 This is a personal local-first project; versions are milestones, not releases.
 
+## [1.1.1] — 2026-11-05
+
+Bug-fix pass following a deliberate defect hunt. Two defects were silently
+degrading behaviour while HTTP responses still looked healthy.
+
+### Fixed
+- **All Instagram/content AI fallbacks raised `NameError`.** The handlers
+  imported `json` inside the function body *after* the fallback lambda that used
+  it, making `json` an unbound local. Every offline generation logged
+  `fallback_error:NameError` and the primary fallback never ran (a second code
+  path masked it in the response). `json` is now imported once at module scope.
+  Affected: `instagram.profile`, `instagram.niche`, `instagram.reels`,
+  `instagram.captions`, `content.audience`.
+- **FFmpeg/ffprobe reported missing when installed but absent from PATH.** The
+  machine's user PATH is truncated, so `shutil.which` failed and video render
+  returned `tool_missing`. `config._find_tool()` now falls back to known install
+  locations, including WinGet versioned package folders; `process.resolve()`
+  uses the same lookup so the subprocess allowlist and the API agree.
+- Removed 19 unused imports/locals across 9 backend modules (`pyflakes` clean).
+- Removed 7 unused React imports across 5 pages.
+
+### Added
+- `backend/tests/test_fallback_regression.py` — 6 tests pinning the fallback fix
+  and asserting no `fallback_error%` status can ever be written.
+- `backend/tests/test_tools.py` — 7 tests for tool discovery, `process.resolve`
+  parity, and that no shell is ever allowlisted.
+
+**Tests: 113 passed, 1 skipped. `pyflakes`: 0 warnings.**
+
 ## [1.1.0] — 2026-11-05
 
 Remediation & activation session: real AI provider routing, GitHub tooling,

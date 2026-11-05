@@ -1,11 +1,10 @@
 """NEXUS AI — end-to-end API tests (offline-first; network tests skip when offline)."""
-import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config, security
+from app import security
 from app.main import app
 
 

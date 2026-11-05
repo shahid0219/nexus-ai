@@ -80,7 +80,10 @@ def test_scan_text_detects_github_token():
 
 
 def test_scan_text_detects_private_key():
-    findings = github._scan_text("k.py", "-----BEGIN RSA PRIVATE KEY-----")
+    # Assembled at runtime so this test file never contains a literal key header
+    # that a provider-side secret scanner would flag.
+    header = "-----BEGIN " + "RSA " + "PRIVATE KEY" + "-----"
+    findings = github._scan_text("k.py", header)
     assert any(f["rule"] == "private_key" for f in findings)
 
 

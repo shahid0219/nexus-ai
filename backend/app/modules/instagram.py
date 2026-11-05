@@ -8,8 +8,8 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_router, ai_fallback, approvals, credentials, db, ollama_client
-from ..security import ApprovalRequired, NexusError, clamp, now_iso, sanitize_filename
+from .. import activity, ai_router, ai_fallback, approvals, credentials, db
+from ..security import ApprovalRequired, NexusError, now_iso
 
 router = APIRouter(prefix="/api/instagram", tags=["instagram"])
 
@@ -30,7 +30,6 @@ def profile_analyze(body: AnalyzeIn):
         system="You are a social media strategist. Be specific and honest.",
         fallback=lambda: json.dumps(
             ai_fallback.profile_analysis(body.profile_text), ensure_ascii=False))
-    import json
     analysis = None
     if result["generated_by"] != "fallback":
         analysis = None  # model prose goes to `text`
@@ -53,14 +52,12 @@ class NicheIn(BaseModel):
 
 @router.post("/niche/research")
 def niche_research(body: NicheIn):
-    payload = {"niche": body.niche, "context": body.context or ""}
     result = ai_router.generate(
         f"Niche research brief: {body.niche}. Context: {body.context or 'none'}",
         module="instagram.niche",
         system="Produce honest niche analysis; label uncertainty.",
         fallback=lambda: json.dumps(
             ai_fallback.niche_research(body.niche), ensure_ascii=False))
-    import json
     try:
         data = json.loads(result["text"]) if result["generated_by"] == "fallback" else None
     except (ValueError, TypeError):
@@ -87,7 +84,6 @@ def reels_ideas(body: ReelsIn):
         module="instagram.reels",
         fallback=lambda: json.dumps(
             ai_fallback.reels(body.topic, body.count), ensure_ascii=False))
-    import json
     ideas = None
     if result["generated_by"] == "fallback":
         try:
@@ -111,7 +107,6 @@ def captions(body: CaptionsIn):
         module="instagram.captions",
         fallback=lambda: json.dumps(
             ai_fallback.captions(body.topic, body.count, body.tone), ensure_ascii=False))
-    import json
     caps = None
     if result["generated_by"] == "fallback":
         try:

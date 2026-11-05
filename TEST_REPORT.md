@@ -1,9 +1,87 @@
 # TEST_REPORT.md — NEXUS AI
 
-**Run date:** 2026-11-05 (final verification)
+**Run date:** 2026-11-05 (bug-fix pass)
 **Command:** `python -m pytest backend/tests -q` (from project root)
-**Result:** **100 passed, 1 skipped** in 51.87 s
+**Result:** **113 passed, 1 skipped** in 40.41 s
 (the one skip is Windows SAPI voiceover, which cannot run on this Python build)
+`pyflakes backend/app backend/tests` → **0 warnings**.
+
+---
+
+## Bug-fix pass (2026-11-05, later same day)
+
+A deliberate hunt for real defects found two that were **silently degrading
+behaviour while every HTTP response still looked healthy**.
+
+### Bug 1 — every Instagram/content AI fallback raised `NameError`
+
+`backend/app/modules/instagram.py` and `backend/app/modules/content.py` imported
+`json` *inside* the request handler, **after** the fallback lambda that used it:
+
+```python
+fallback=lambda: json.dumps(ai_fallback.niche_research(body.niche))
+import json          # <- makes `json` a local name for the whole function
+```
+
+Because the import bound a local variable, the lambda's reference was an
+unbound local at call time. Result: **all five** fallback paths
+(`instagram.profile`, `instagram.niche`, `instagram.reels`,
+`instagram.captions`, `content.audience`) raised `NameError`, and the DB
+recorded `fallback_error:NameError` on every offline generation.
+
+The endpoints still returned HTTP 200 because each had a second
+`ai_fallback.*` call after the try/except — so the demo looked fine while the
+primary fallback never executed and the AI log filled with errors.
+
+**Fix:** `json` is imported once at module scope; the redundant function-local
+imports were removed.
+
+**Evidence (before → after):**
+```
+before: ai_calls.status = 'fallback_error:NameError'   (5 rows)
+after : ai_calls.status = 'fallback'
+```
+
+**Regression tests:** `backend/tests/test_fallback_regression.py` (6 tests) —
+one per handler plus an assertion that no `fallback_error%` row is ever written.
+
+### Bug 2 — FFmpeg reported missing on a machine where it is installed
+
+This profile's user `PATH` is truncated at 1049 characters, so
+`shutil.which("ffmpeg")` returned `None` and `/api/youtube/render` failed with
+`tool_missing` even though FFmpeg 8.1.1 was present. `start_nexus.bat` worked
+(it searched manually) but the API did not — an inconsistency that would hit
+any user with a broken PATH.
+
+**Fix:** `config._find_tool()` resolves `ffmpeg`/`ffprobe` from PATH first, then
+known install locations, including WinGet's versioned package folders whose name
+(`ffmpeg-8.1.1-full_build`) need not match the binary (`ffprobe.exe`).
+`process.resolve()` now uses that same lookup, so the allowlist and the API agree.
+
+**Evidence:**
+```
+config.ffmpeg_path()  -> ...\Gyan.FFmpeg_...\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe
+config.ffprobe_path() -> ...\ffmpeg-8.1.1-full_build\bin\ffprobe.exe
+render + ffprobe      -> duration=2.000000  rc=0
+```
+
+**Regression tests:** `backend/tests/test_tools.py` (7 tests) — fallback lookup,
+WinGet nesting, missing-tool behaviour, `process.resolve` parity, and an
+assertion that no shell is ever allowlisted.
+
+### Also fixed in this pass
+
+- 19 unused imports/locals removed across 9 backend modules (`pyflakes` clean).
+- 7 unused React imports removed (`Approvals`, `Content`, `Monetisation`,
+  `Settings`, `YouTube`); frontend rebuilds to 48 modules.
+- A throwaway probe exercised **48 endpoints** (29 GET, 17 POST) with the AI
+  provider forced offline: **0 failures, 0 unhandled 500s**.
+
+---
+
+## Final verification (2026-11-05, earlier)
+
+**Result:** **100 passed, 1 skipped** in 51.87 s
 
 Environment at time of run:
 

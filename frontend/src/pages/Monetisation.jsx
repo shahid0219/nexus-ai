@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { api } from '../api.js'
 import {
-  AiMeta, Badge, Btn, Card, Empty, ErrorMsg, Field, Input, Notice, Result,
-  Spinner, Tabs, TextArea, useLoad,
+  api } from '../api.js'
+import {
+  AiMeta, Badge, Btn, Card, Empty, ErrorMsg, Field, Input, Notice, Result, Spinner, Tabs, useLoad,
 } from '../ui.jsx'
 
 export default function Monetisation() {

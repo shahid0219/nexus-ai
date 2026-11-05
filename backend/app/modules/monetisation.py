@@ -7,7 +7,7 @@ import io
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_router, ai_fallback, approvals, db, ollama_client
+from .. import activity, ai_router, approvals, db
 from ..security import ApprovalRequired, NexusError, now_iso
 
 router = APIRouter(prefix="/api/monetisation", tags=["monetisation"])

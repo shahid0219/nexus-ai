@@ -250,7 +250,6 @@ def platform_content(topic: str, platform: str) -> str:
 
 def cover_letter(profile: dict, job: dict, skills_matched: list[str]) -> str:
     name = profile.get("name") or "Your name"
-    role = profile.get("headline") or profile.get("role") or "the role"
     company = (job or {}).get("company") or "the team"
     position = (job or {}).get("title") or "the position"
     skills = ", ".join(skills_matched[:6]) if skills_matched else "the core skills listed"

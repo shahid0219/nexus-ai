@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
-import { api } from '../api.js'
-import { Badge, Btn, Card, Empty, ErrorMsg, Field, Notice, Spinner, TextArea, useLoad } from '../ui.jsx'
+import {
+  api } from '../api.js'
+import { Badge, Btn, Empty, ErrorMsg, Field, Notice, TextArea, useLoad,
+} from '../ui.jsx'
 
 const TONE = { pending: 'warn', approved: 'ok', rejected: 'err', auto: 'info' }
 

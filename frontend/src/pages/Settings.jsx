@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { api } from '../api.js'
 import {
-  Badge, Btn, Card, Empty, ErrorMsg, Field, Input, Notice, Select, Spinner,
-  TextArea, useLoad,
+  api } from '../api.js'
+import {
+  Badge, Btn, Card, Empty, ErrorMsg, Field, Input, Notice, Spinner, TextArea, useLoad,
 } from '../ui.jsx'
 
 const KIND_TONE = { remote: 'info', local: 'ok', deterministic: 'neutral' }

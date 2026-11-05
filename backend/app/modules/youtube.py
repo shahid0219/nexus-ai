@@ -14,7 +14,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_router, ai_fallback, approvals, config, credentials, db, ollama_client, process
+from .. import activity, ai_fallback, ai_router, approvals, config, credentials, db, process
 from ..security import ApprovalRequired, NexusError, clamp, now_iso, sanitize_filename
 
 router = APIRouter(prefix="/api/youtube", tags=["youtube"])

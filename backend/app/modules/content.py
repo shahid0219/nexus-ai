@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_router, ai_fallback, config, db, ollama_client
+from .. import activity, ai_router, ai_fallback, db
 from ..security import NexusError, now_iso
 
 router = APIRouter(prefix="/api/content", tags=["content"])
@@ -148,7 +148,6 @@ def audience(body: AudienceIn):
         module="content.audience",
         fallback=lambda: json.dumps(
             ai_fallback.audience(body.niche), ensure_ascii=False))
-    import json
     try:
         data = json.loads(result["text"]) if result["generated_by"] == "fallback" else None
     except (ValueError, TypeError):

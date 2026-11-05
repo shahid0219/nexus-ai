@@ -58,16 +58,68 @@ def frontend_built() -> bool:
     return (FRONTEND_DIST / "index.html").exists()
 
 
+# --- tool discovery --------------------------------------------------------
+# `shutil.which` only searches PATH. On Windows a truncated or stale PATH is a
+# common reason a working install looks "missing", so fall back to the well-known
+# install locations before reporting a tool as absent.
+def _candidate_bins(tool: str) -> list[Path]:
+    """Known install directories for an optional binary, most-specific first."""
+    home = Path.home()
+    local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+    program_files = Path(os.environ.get("ProgramFiles", "C:/Program Files"))
+    if tool in ("ffmpeg", "ffprobe"):
+        return [
+            ROOT / "tools" / "ffmpeg" / "bin",
+            local / "Microsoft" / "WinGet" / "Packages",
+            local / "hermes" / "tools",
+            program_files / "ffmpeg" / "bin",
+            Path("C:/ffmpeg/bin"),
+            Path("C:/ffmpeg/ffmpeg/bin"),
+            local / "chocolatey" / "bin",
+            Path("C:/ProgramData/chocolatey/bin"),
+        ]
+    return []
+
+
+def _find_tool(tool: str) -> str | None:
+    """Resolve an optional binary: PATH first, then known install locations."""
+    found = shutil.which(tool)
+    if found:
+        return found
+    exe = f"{tool}.exe" if os.name == "nt" else tool
+    for base in _candidate_bins(tool):
+        if not base.exists():
+            continue
+        direct = base / exe
+        if direct.is_file():
+            return str(direct)
+        # WinGet keeps each package in a versioned subfolder whose name may
+        # differ from the binary (e.g. `ffmpeg-8.1.1-full_build/bin/ffprobe.exe`),
+        # so search any nested bin/ directory rather than matching the tool name.
+        try:
+            if base.name == "Packages":
+                for sub in base.glob("*/**/bin/" + exe):
+                    if sub.is_file():
+                        return str(sub)
+            else:
+                for sub in base.glob("**/bin/" + exe):
+                    if sub.is_file():
+                        return str(sub)
+        except OSError:
+            continue
+    return None
+
+
 def ffmpeg_path() -> str | None:
-    return shutil.which("ffmpeg")
+    return _find_tool("ffmpeg")
 
 
 def ffprobe_path() -> str | None:
-    return shutil.which("ffprobe")
+    return _find_tool("ffprobe")
 
 
 def tool_version(name: str) -> str | None:
-    """Presence check only for tools we do not execute (node/git/gh)."""
+    """Presence-only probe for tools we never execute (node/git/gh)."""
     return shutil.which(name)
 
 

@@ -199,7 +199,7 @@ def health(provider: str) -> dict:
 def _list_models(spec: Provider, key: str) -> list[str]:
     """Cheap connectivity probe — lists models, never consumes generation quota."""
     if spec.name == "google":
-        r = httpx.get(f"https://generativelanguage.googleapis.com/v1beta/models",
+        r = httpx.get("https://generativelanguage.googleapis.com/v1beta/models",
                       params={"key": key}, timeout=10.0)
         _raise_for(r)
         data = r.json()
@@ -214,7 +214,7 @@ def _list_models(spec: Provider, key: str) -> list[str]:
 
 def _raise_for(r: httpx.Response) -> None:
     if r.status_code == 429:
-        raise _ProviderError("quota", f"HTTP 429 rate limited by provider")
+        raise _ProviderError("quota", "HTTP 429 rate limited by provider")
     if r.status_code in (401, 403):
         raise _ProviderError("auth", f"HTTP {r.status_code} authentication failed")
     if r.status_code == 404:
@@ -322,7 +322,6 @@ def generate(prompt: str, module: str = "general", system: str | None = None,
     max_tokens = min(max_tokens or config.AI_MAX_TOKENS, config.AI_MAX_TOKENS)
     timeout = timeout or config.AI_TIMEOUT
     attempts: list[dict] = []
-    used: Provider | None = None
     model = ""
     text = ""
     status = "ok"
@@ -365,7 +364,7 @@ def generate(prompt: str, module: str = "general", system: str | None = None,
                 if out["text"]:
                     text = out["text"]
                     tokens_in, tokens_out = out.get("tokens_in"), out.get("tokens_out")
-                    used, provider_name, status = spec, name, "ok"
+                    provider_name, status = name, "ok"
                     _mark(name, ok=True, latency_ms=int((time.time() - started) * 1000))
                     break
                 last_exc = _ProviderError("error", "empty response")

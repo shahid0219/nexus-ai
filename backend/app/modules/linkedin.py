@@ -9,11 +9,11 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, ai_router, ai_fallback, approvals, db, ollama_client
-from ..security import ApprovalRequired, NexusError, clamp, now_iso
+from .. import activity, ai_fallback, ai_router, approvals, db
+from ..security import ApprovalRequired, NexusError, now_iso
 
 router = APIRouter(prefix="/api/linkedin", tags=["linkedin"])
 

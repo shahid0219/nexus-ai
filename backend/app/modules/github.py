@@ -16,7 +16,7 @@ import shutil
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from .. import activity, approvals, config, db, process
+from .. import activity, approvals, config, process
 from ..security import ApprovalRequired, NexusError, now_iso, redact
 
 router = APIRouter(prefix="/api/github", tags=["github"])
