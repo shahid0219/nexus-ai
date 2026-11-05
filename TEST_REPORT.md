@@ -1,28 +1,93 @@
 # TEST_REPORT.md — NEXUS AI
 
-**Run date:** 2026-11-05
+**Run date:** 2026-11-05 (final verification)
 **Command:** `python -m pytest backend/tests -q` (from project root)
-**Result:** **99 passed, 2 skipped** in 88.94 s
-(the skips are Windows SAPI voiceover and the job-feed test when its upstream is
-unreachable; both skip themselves rather than fail)
+**Result:** **100 passed, 1 skipped** in 51.87 s
+(the one skip is Windows SAPI voiceover, which cannot run on this Python build)
 
 Environment at time of run:
 
 | Component | Version |
 |---|---|
 | OS | Windows 10 (AMD64), 16 logical cores |
-| Python | 3.10.11 |
+| Python | 3.10.11 (invoked by absolute path — see note) |
 | Node / npm | v24.21.0 / 11.19.0 |
-| FFmpeg | 8.1.1-full_build (gyan.dev) |
+| FFmpeg | 8.1.1-full_build (Gyan/WinGet) |
 | Git | 2.50.1.windows.1 |
-| Ollama | 0.40.13 client, **server running**, 6 models installed |
+| Ollama | 0.40.13, **server running**, 6 models installed |
 | FastAPI / Starlette | 0.116.1 / 0.47.2 |
 | React / Vite | 18.3 / 5.4.21 |
+
+> **Machine note (not a project defect):** this Windows profile's user `PATH`
+> is truncated mid-entry at 1049 characters (it ends at
+> `...\Programs\Pyth`), so `python` and `ffmpeg` are not resolvable from a
+> fresh shell. NEXUS was verified by supplying the absolute interpreter path
+> and the WinGet FFmpeg bin directory. `start_nexus.bat` was hardened to
+> locate Python and FFmpeg itself, so the launcher works regardless. Repairing
+> the system `PATH` is left to the machine owner.
 
 The suite runs against a throwaway SQLite database in `%TEMP%` (see
 `backend/tests/conftest.py`) — the real `data/nexus.db` is never touched.
 Network tests skip themselves when the public feeds are unreachable, so the
 suite is meaningful fully offline.
+
+---
+
+## Final verification (2026-11-05)
+
+### Live endpoint smoke test — 20/20 HTTP 200
+
+`/api/health`, `/api/system/status`, `/api/stats`, `/api/accounts`,
+`/api/automation/jobs`, `/api/automation/status`, `/api/ai/status`,
+`/api/github/status`, `/api/instagram/oauth/status`, `/api/youtube/oauth/status`,
+`/api/linkedin/applications`, `/api/monetisation/revenue`, `/api/approvals`,
+`/api/tasks`, `/api/logs`, `/api/instagram/calendar`, `/api/instagram/analytics`,
+`/api/content/trends`, `/api/linkedin/jobs`, `/`.
+
+### Live AI (real inference, not simulated)
+
+```
+GET  /api/ai/status   -> active: ollama / Ollama (local), model qwen2.5-coder:3b
+POST /api/ai/generate -> generated_by=ollama, model=qwen2.5-coder:3b,
+                         text="NEXUS_FINAL_OK", fallback=False
+POST /api/ai/stream   -> text/event-stream, 2 delta chunks + done event (447 ms)
+```
+
+Six models are installed. The 16.5 GB model is refused by the size policy, and
+`qwen2.5-coder:3b` (1.8 GB) is selected — appropriate for a 4 GB card.
+
+### Live FFmpeg render (validated, not just "exit 0")
+
+```
+POST /api/youtube/render (2 scenes x 2 s)
+  -> data/artifacts/video_1793865861_NEXUS_Live_Verify.mp4
+ffprobe: format_name=mov,mp4,m4a,3gp,3g2,mj2   duration=4.000000
+```
+
+### Scheduler restart recovery
+
+`automation_jobs.last_run_ts` was back-dated in SQLite; `Scheduler._check_due()`
+then read the persisted timestamp, ran `weekly_report`, and wrote a new
+`automation_runs` row. Recovery works from the database, not memory.
+
+### Frontend build
+
+```
+vite v5.4.21 building for production...
+✓ 48 modules transformed.
+dist/index.html                   0.39 kB │ gzip:  0.27 kB
+dist/assets/index-DuWULXd0.css   11.66 kB │ gzip:  3.21 kB
+dist/assets/index-DqAJYbVG.js   253.56 kB │ gzip: 76.41 kB
+✓ built in 2.71s
+```
+
+### API surface
+
+**82 method+path pairs** across 9 modules (was 62 across 8).
+
+### Secret scan
+
+`GET /api/github/secret-scan` — 64 files, clean, findings always redacted.
 
 ---
 
@@ -38,8 +103,6 @@ and a Settings UI. Everything below was run on this machine today.
 | `backend/tests/test_ai_router.py` | 19 | provider order, 429/quota failover, cooldown skip, auth/404 classification, timeout retries, Ollama selection, oversized-model rejection, redaction, truthful metadata, credential-free connectivity probe |
 | `backend/tests/test_github.py` | 15 | forbidden-path refusal, traversal refusal, 10 credential patterns, redacted previews, status parsing, commit blocked by a dirty scan, approval-gated profile apply, preview never writes |
 | `backend/tests/test_meta_oauth.py` | 12 | OAuth status states, secret never echoed, official auth URL, long-lived token exchange, provider-error surfacing, permission-gap detection, missing professional-account detection, honest analytics/publish refusal |
-
-**Total now: 99 passed, 2 skipped.**
 
 ### Live AI verification (real, not simulated)
 
