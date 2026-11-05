@@ -15,5 +15,7 @@ data/credentials.json
 .venv
 venv
 docs
+site
+.github
 *.md
 !README.md

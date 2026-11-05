@@ -188,6 +188,22 @@ export default function Settings() {
             <p className="dim mt">
               Order: {order.join(' → ')}
             </p>
+            {status.data.hint && (
+              <Notice tone="warn" title="Local AI needs attention">
+                {status.data.hint}
+              </Notice>
+            )}
+            {status.data.ollama && (
+              <p className="dim">
+                Ollama at <code>{status.data.ollama.url}</code>:{' '}
+                {status.data.ollama.available
+                  ? `${status.data.ollama.models.length} model(s) installed`
+                  : 'not reachable'}
+                {status.data.ollama.models.length > 0 && (
+                  <> — {status.data.ollama.models.join(', ')}</>
+                )}
+              </p>
+            )}
             <p className="dim">
               DeepSeek does not offer a free API. Its website chat is not an API, so
               NEXUS never scrapes it. A DeepSeek key is used only if you store one here.

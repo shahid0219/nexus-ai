@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.10"
+  NODE_VERSION: "20"
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install FFmpeg and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyflakes
+
+      - name: Lint (pyflakes)
+        run: python -m pyflakes backend/app backend/tests
+
+      - name: Run tests
+        env:
+          # Force the deterministic path so CI never needs a model or a key.
+          OLLAMA_URL: http://127.0.0.1:11434
+        run: python -m pytest backend/tests -q
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: frontend
+        run: |
+          test -f dist/index.html
+          ls -la dist/assets
+
+  integrity:
+    name: Repository integrity and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install minimal dependencies
+        run: pip install fastapi httpx pydantic psutil Pillow
+
+      - name: Secret scan (project scanner)
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "backend")
+          from app.modules import github
+          result = github.secret_scan()
+          print(f"scanned {result['scanned_files']} files")
+          for f in result["findings"]:
+              print(f"  {f['path']}  {f['rule']}  line {f['line']}")
+          if not result["clean"]:
+              sys.exit("Secret scan failed: findings above")
+          print("secret scan clean")
+          PY
+
+      - name: Fail if runtime data is tracked
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)data/|\.db$|credentials\.json|(^|/)\.env$|node_modules/|(^|/)dist/' || true)
+          if [ -n "$bad" ]; then
+            echo "Runtime or build artefacts are tracked:"; echo "$bad"; exit 1
+          fi
+          echo "no runtime data tracked"
+
+      - name: Validate the site HTML
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          index = pathlib.Path("site/index.html")
+          assert index.is_file(), "site/index.html is missing"
+          html = index.read_text(encoding="utf-8")
+          for needle in ("<title>", 'id="features"', 'id="install"',
+                         "screenshots/dashboard.png", "github.com/shahid0219/nexus-ai"):
+              assert needle in html, f"site/index.html missing {needle!r}"
+          for asset in ("site/assets/site.css", "site/assets/site.js",
+                        "site/assets/favicon.svg",
+                        "site/assets/screenshots/dashboard.png"):
+              assert pathlib.Path(asset).is_file(), f"missing asset {asset}"
+          print("site structure ok")
+          PY
+
+  docker:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: nexus-ai:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the container
+        run: |
+          docker run -d --name nexus-ci -p 8777:8777 nexus-ai:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8777/api/health >/dev/null 2>&1; then
+              echo "healthy after ${i}s"; break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8777/api/health
+          echo
+          curl -fsS http://127.0.0.1:8777/api/ai/status | head -c 400
+          echo
+          if [ "$(docker inspect -f '{{.State.Health.Status}}' nexus-ci)" != "healthy" ]; then
+            echo "container did not report healthy"; docker logs nexus-ci; exit 1
+          fi
+          docker logs nexus-ci 2>&1 | tail -20
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f nexus-ci || true

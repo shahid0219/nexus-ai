@@ -1,10 +1,95 @@
 # TEST_REPORT.md — NEXUS AI
 
-**Run date:** 2026-11-05 (deployment verification)
+**Run date:** 2026-11-05 (session 4 — zero-key AI, website, CI)
 **Command:** `python -m pytest backend/tests -q` (from project root)
-**Result:** **119 passed, 1 skipped** in 51.45 s
+**Result:** **124 passed, 1 skipped** in 55.93 s
 (the one skip is Windows SAPI voiceover, which cannot run on this Python build)
 `pyflakes backend/app backend/tests` → **0 warnings**.
+
+---
+
+## Session 4 — real Ollama through Docker (not mocked)
+
+### The claim being tested
+
+"AI needs an API key" was **false**. The container was reading `OLLAMA_URL` as
+`http://127.0.0.1:11434`, and inside a container `127.0.0.1` is the container
+itself, not the Windows host. No key was ever required.
+
+### Evidence, in order
+
+| Step | Command / observation | Result |
+|---|---|---|
+| Ollama on host | `ollama serve`, then `/api/tags` | 6 models |
+| Host bind | `netstat -ano \| findstr :11434` | `127.0.0.1:11434` only |
+| Container → host | `curl http://host.docker.internal:11434/api/tags` | **200**, 6 models |
+| Real model call (raw) | `POST /api/generate {"model":"gemma3:1b"}` | `DOCKER_OLLAMA_OK` |
+| Real model call (NEXUS) | `POST /api/ai/generate` | `generated_by=ollama`, `model=qwen2.5-coder:3b`, `status=ok`, 4781 ms, text `NEXUS_DOCKER_REAL` |
+| Compose deployment | `docker compose up -d --build` | `Up (healthy)` |
+| Compose + AI | `POST /api/ai/generate` | `generated_by=ollama`, `qwen2.5-coder:3b`, 682 ms, text `COMPOSE_OK` |
+| Model list in status | `GET /api/ai/status` | `installed=6`, `selected=qwen2.5-coder:3b` |
+
+The two NEXUS generation results above are **real model output**, not the
+deterministic template engine. They are distinguishable in the response itself:
+`generated_by` is `ollama` and `model` names the model.
+
+### Real-integration test file
+
+`backend/tests/test_ollama_live.py` — 5 tests that hit the live server:
+
+1. `test_live_server_reports_installed_models`
+2. `test_live_model_selection_respects_size_policy`
+3. `test_live_generation_returns_real_text`
+4. `test_live_router_generation_uses_ollama`
+5. `test_live_status_reflects_reality`
+
+They **skip** when no model is available, with the reason
+`no reachable Ollama with a model that fits the size policy`. A skip is therefore
+honest; a pass proves a model actually responded.
+
+```
+backend/tests/test_ollama_live.py .....  [100%]
+5 passed in 59.53s
+```
+
+### Bugs found during this verification
+
+**A. `/api/ai/status` always reported `models: []` for Ollama.**
+It echoed the hardcoded provider spec (`spec.models`, empty for a local server)
+instead of the installed models. The UI therefore could not show what was
+available. It now lists real models and exposes `ollama.sizes_gb`.
+
+**B. No guidance when local AI is unavailable.**
+`status()` now returns a `hint` naming the exact fix — unreachable server, no
+models installed, or no model within `NEXUS_AI_MAX_MODEL_GB`. The AI Settings page
+renders it.
+
+**C. A stale model override broke every generation.**
+`_pick_model` returned a saved override unconditionally. If that model had been
+deleted, every call failed instead of auto-selecting. Overrides are now honoured
+only while the model exists and fits the size policy.
+
+### Deployment bugs fixed this session
+
+- Dockerfile gained `fonts-dejavu-core`; without a TTF, `drawtext` rendering fails
+  on the slim image.
+- Added `docker-compose.yml` wiring `OLLAMA_URL` and `host.docker.internal`
+  correctly, with a healthcheck.
+
+### Endpoint and UI audit
+
+- 55 frontend `api.get/post/del` call sites checked against the 82 backend
+  routes: **all resolve**.
+- No `onClick={() => {}}`, no `href="#"`, no TODO/FIXME/"coming soon" markers.
+- 12 pages render; screenshots for the site were captured from the running
+  container.
+
+### Website
+
+- `site/index.html` + `assets/` — responsive at 1440 px and at 504 px (headless
+  Chrome's minimum width), hamburger nav below 720 px.
+- 6 screenshots taken from the live container, so the site shows the real product.
+- No fabricated testimonials, statistics, or live-status claims.
 
 ---
 

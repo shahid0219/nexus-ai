@@ -42,13 +42,18 @@ presented as AI when it was not.
 
 ```powershell
 ollama serve
-ollama pull qwen2.5-coder:3b   # ~2 GB, fits a 4 GB GPU
+ollama pull qwen2.5-coder:3b   # ~1.8 GB, fits a 4 GB GPU
 ```
 
 Model selection is size-aware: NEXUS prefers `qwen2.5-coder:3b`, `qwen2.5:3b`,
 `gemma3:1b`, `ministral-3:3b`, `qwen3.5:4b`, `llama3.2:3b`, `llama3.2:1b`,
 `phi3:mini`, `gemma2:2b`, and **refuses to load anything above
 `NEXUS_AI_MAX_MODEL_GB` (default 5.5 GB)** so a small GPU is never asked to swap.
+NEXUS never downloads a model on its own — `ollama pull` is always your command.
+
+The **AI Settings** page shows the active provider, the selected model, every
+installed model, and a hint telling you exactly what to fix when local AI is
+unavailable.
 
 Remote providers (Groq / OpenRouter / Google / DeepSeek) can be added with your own
 key on the **AI Settings** page. DeepSeek has no free API tier — its chat website is
@@ -58,11 +63,25 @@ not an API and NEXUS never scrapes it.
 
 ```bash
 docker build -t nexus-ai .
-docker run --rm -p 8777:8777 -v nexus-data:/app/data nexus-ai
+docker run --rm -p 8777:8777 \
+  -v nexus-data:/app/data \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
+  nexus-ai
 ```
+
+Inside a container `localhost` is the container, not your PC. `OLLAMA_URL` must point
+at `host.docker.internal` to reach Ollama on the Windows host.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for volumes, Ollama networking, configuration
 variables and the security posture.
+
+### Project website
+
+The landing page lives in [`site/`](site) and is published to
+<https://shahid0219.github.io/nexus-ai/> by GitHub Pages on every push that touches
+`site/`. It is a static project site — GitHub Pages does **not** host the Python
+backend.
 
 ---
 
@@ -126,18 +145,27 @@ nexus-ai/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py  db.py  security.py  approvals.py  process.py
-│   │   ├── activity.py  ollama_client.py  ai_fallback.py  credentials.py
-│   │   ├── routers.py  main.py
+│   │   ├── activity.py  ollama_client.py  ai_fallback.py  ai_router.py
+│   │   ├── credentials.py  routers.py  main.py
 │   │   └── modules/
 │   │       ├── command_centre.py  instagram.py  youtube.py  linkedin.py
-│   │       └── content.py  monetisation.py  automation.py  accounts.py
-│   └── tests/  conftest.py  test_api.py
+│   │       ├── content.py  monetisation.py  automation.py  accounts.py
+│   │       └── github.py
+│   └── tests/  conftest.py  test_api.py  test_ai_router.py  test_github.py
+│                test_meta_oauth.py  test_tools.py  test_deployment.py
+│                test_fallback_regression.py
 ├── frontend/
 │   ├── index.html  vite.config.js  package.json
 │   └── src/
 │       ├── main.jsx  App.jsx  api.js  ui.jsx  styles.css
 │       └── pages/  Dashboard, Approvals, Instagram, YouTube, LinkedIn,
-│                   Content, Monetisation, Automation, Accounts, Logs
+│                   Content, Monetisation, Automation, Accounts, Logs,
+│                   Settings (AI), GitHubPage
+├── site/                     static project site published to GitHub Pages
+│   ├── index.html
+│   └── assets/               site.css, site.js, favicon.svg, screenshots/
+├── .github/workflows/        ci.yml (tests/build/docker), pages.yml (Pages)
+├── Dockerfile  .dockerignore  DEPLOYMENT.md
 └── data/                     gitignored runtime state
     ├── nexus.db              SQLite (WAL)
     ├── credentials.json      owner-only, never returned by the API
@@ -147,16 +175,77 @@ nexus-ai/
 
 ---
 
+## Running with no API keys
+
+NEXUS needs **no paid subscription, no API credit and no API key**. The order of
+resolution for every AI feature is:
+
+1. **Ollama** — a local model on your own machine. Free, offline, no key.
+2. **A free-tier provider** — only if *you* added a key on the AI Settings page.
+3. **Deterministic templates** — always available, always labelled
+   `generated_by: "fallback"`.
+
+Nothing else is required. With no Ollama and no keys the entire application still
+runs: content planning, video rendering, thumbnails, CV building, job discovery,
+monetisation tracking, scheduling and persistence all work.
+
+Every AI response carries the provider and model that produced it, so the UI can
+never imply a model ran when it did not.
+
+### Connecting Ollama when NEXUS runs in Docker (Windows)
+
+Ollama binds `127.0.0.1` by default, which a container cannot reach. Docker Desktop
+on Windows already exposes the host as `host.docker.internal`, so pass that:
+
+```powershell
+docker run --rm -p 8777:8777 `
+  -v nexus-data:/app/data `
+  -e OLLAMA_URL=http://host.docker.internal:11434 `
+  --add-host=host.docker.internal:host-gateway `
+  nexus-ai
+```
+
+Verify from inside the container:
+
+```powershell
+docker exec <container> curl -s http://host.docker.internal:11434/api/tags
+```
+
+If that fails, allow Ollama to listen beyond loopback **only if you accept the LAN
+exposure**, then restart it:
+
+```powershell
+# current user, persistent
+[Environment]::SetEnvironmentVariable('OLLAMA_HOST', '0.0.0.0:11434', 'User')
+# restart the Ollama app / `ollama serve`, then verify the bind:
+netstat -ano | Select-String ':11434'
+```
+
+Do **not** expose `11434` through your router or a public tunnel: there is no
+authentication on that port. If you set `OLLAMA_HOST=0.0.0.0`, create a Windows
+Firewall rule restricted to the Docker subnet rather than allowing all profiles:
+
+```powershell
+New-NetFirewallRule -DisplayName "Ollama (Docker subnet only)" -Direction Inbound `
+  -Protocol TCP -LocalPort 11434 -RemoteAddress 172.17.0.0/16 -Action Allow
+```
+
+With Ollama left on its default `127.0.0.1` bind, Docker Desktop's host proxy is the
+only path in — which is the safer configuration and the one verified in
+`TEST_REPORT.md`.
+
+---
+
 ## Tests
 
 ```powershell
 python -m pytest -q
 ```
 
-54 tests pass; 1 skips when Windows SAPI is unavailable and 2 network-dependent
-feed tests skip themselves when an upstream is unreachable. See `TEST_REPORT.md`
-for the recorded run, what each test proves, and the full API surface.
----
+**119 passed, 1 skipped.** The skip is the Windows SAPI voiceover test, which cannot
+run on this Python build. One real Ollama generation test is separate and only runs
+when a model is installed. See `TEST_REPORT.md` for the recorded runs, what each
+test proves, and the full API surface.
 
 ## Configuration
 

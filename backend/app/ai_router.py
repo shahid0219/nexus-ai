@@ -251,14 +251,20 @@ def _classify(exc: Exception) -> tuple[str, str]:
 
 # ---------------------------------------------------------------- generate ---
 def _pick_model(provider: str, installed: list[str] | None = None) -> str:
-    override = get_model_override().get(provider)
-    if override:
-        return override
     spec = PROVIDERS[provider]
+    override = get_model_override().get(provider)
     if provider == "ollama":
         h = ollama_client.health()
-        models = installed or h["models"]
+        models = installed if installed is not None else h["models"]
+        # A saved override may name a model that has since been deleted. Honour it
+        # only while it is still installed AND still fits, otherwise auto-select,
+        # so a stale setting cannot break every generation.
+        if override and override in models and ollama_client._fits(
+                override, h.get("sizes_gb", {})):
+            return override
         return ollama_client._pick_model(models, h.get("sizes_gb")) or ""
+    if override:
+        return override
     return spec.models[0] if spec.models else ""
 
 
@@ -500,13 +506,16 @@ def state(provider: str) -> dict:
 
 def status() -> dict:
     order = get_order()
+    h = ollama_client.health()
     providers = []
     for name in order:
         spec = PROVIDERS[name]
+        # Local models are discovered, not hardcoded: report what is installed.
+        models = list(h.get("models", [])) if name == "ollama" else spec.models
         providers.append({
             "name": name, "label": spec.label, "kind": spec.kind,
             "free_note": spec.free_note, "doc": spec.doc,
-            "models": spec.models, "selected_model": _pick_model(name),
+            "models": models, "selected_model": _pick_model(name),
             **state(name),
         })
     active = None
@@ -514,7 +523,7 @@ def status() -> dict:
     for p in providers:
         if p["name"] == "ollama":
             ollama_ok = bool(p["configured"]) and not p["cooling_down"] and \
-                ollama_client.health()["available"] and bool(p["selected_model"])
+                h["available"] and bool(p["selected_model"])
     for p in providers:
         if p["name"] == "fallback":
             continue
@@ -526,9 +535,29 @@ def status() -> dict:
         if p["configured"] and not p["cooling_down"]:
             active = p["name"]
             break
+    # An explicit hint beats a silent fallback: tell the operator how to fix it.
+    hint = None
+    if not h["available"]:
+        hint = ("Ollama is not reachable at " + config.OLLAMA_URL + ". Start it with "
+                "`ollama serve`. Inside Docker set OLLAMA_URL to "
+                "http://host.docker.internal:11434.")
+    elif not h.get("models"):
+        hint = "Ollama is running but has no models. Pull one: `ollama pull gemma3:1b`."
+    elif not _pick_model("ollama"):
+        fitting = [m for m in h.get("models", [])
+                   if ollama_client._fits(m, h.get("sizes_gb", {}))]
+        if not fitting:
+            hint = (f"No installed model fits the {config.AI_MAX_MODEL_GB} GB policy. "
+                    "Pull a smaller model (e.g. `ollama pull gemma3:1b`) or raise "
+                    "NEXUS_AI_MAX_MODEL_GB.")
     return {"order": order, "providers": providers, "active": active,
             "active_label": PROVIDERS[active].label if active else
             PROVIDERS["fallback"].label,
+            "ollama": {"available": h["available"], "url": h["url"],
+                       "models": h.get("models", []),
+                       "sizes_gb": h.get("sizes_gb", {}),
+                       "selected_model": _pick_model("ollama")},
+            "hint": hint,
             "fallback_ready": True}
 
 

@@ -112,6 +112,24 @@ Priority: P0 = blocking core, P1 = major feature, P2 = polish. Checked = done & 
 - [x] P0 Deployment regression tests (6 tests) → 119 passing total
 - [x] P0 Container verified: healthy, 16 endpoints, real MP4, restart persistence
 
+## Phase 11 — Zero-key AI, website, CI (session 4)
+
+- [x] P0 Diagnose why AI "needs a key" (it did not — wrong OLLAMA_URL in Docker)
+- [x] P0 Verify container → host Ollama on `host.docker.internal:11434`
+- [x] P0 Real generation through NEXUS in Docker (`qwen2.5-coder:3b`, 682 ms)
+- [x] P0 Fix `/api/ai/status` returning `models: []` for Ollama
+- [x] P0 Add actionable `hint` when local AI is unavailable
+- [x] P0 Fix saved model override breaking generation when the model is deleted
+- [x] P0 `docker-compose.yml` with `extra_hosts` + `OLLAMA_URL`
+- [x] P0 5 real Ollama integration tests (skip honestly with no model)
+- [x] P0 Show Ollama models + hint on the AI Settings page
+- [x] P0 `site/` landing page with 6 real screenshots
+- [x] P0 `.github/workflows/ci.yml` (tests, build, integrity, docker smoke)
+- [x] P0 `.github/workflows/pages.yml` (official Pages deploy)
+- [x] P0 Audit all 12 pages and 55 frontend calls against the route table
+- [x] P0 Update README/DEPLOYMENT/PROJECT_STATE/TASKS/TEST_REPORT
+- [ ] P1 Owner: enable Pages in Settings if the first deploy says it is disabled
+
 ## Backlog (P2)
 - [x] P2 Optional `ollama pull` helper in start script
 - [ ] P2 CSV import for sponsorships/applications

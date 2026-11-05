@@ -61,10 +61,11 @@ Lose the volume and you lose the data; the image itself is stateless.
 ### Talking to Ollama on the host
 
 Ollama is a separate service and is deliberately not bundled (it needs its own model
-files and GPU access). From a container:
+files and GPU access). **Inside a container `localhost` is the container, not your PC**,
+so `OLLAMA_URL` must name the host.
 
 ```bash
-# Windows / macOS
+# Windows / macOS (Docker Desktop already maps host.docker.internal)
 docker run --rm -p 8777:8777 -v nexus-data:/app/data \
   -e OLLAMA_URL=http://host.docker.internal:11434 nexus-ai
 
@@ -74,8 +75,68 @@ docker run --rm -p 8777:8777 -v nexus-data:/app/data \
   -e OLLAMA_URL=http://host.docker.internal:11434 nexus-ai
 ```
 
-If Ollama is unreachable the app does not fail: `/api/ai/status` reports it honestly and
-generation falls back to the labelled deterministic templates.
+Or use the bundled compose file, which sets all of this for you:
+
+```bash
+docker compose up --build
+```
+
+#### Verified on Windows
+
+This exact configuration was tested end to end:
+
+```text
+container -> http://host.docker.internal:11434/api/tags
+            -> 6 models listed
+container -> POST /api/ai/generate
+            -> generated_by=ollama, model=qwen2.5-coder:3b, text="NEXUS_DOCKER_REAL"
+```
+
+Ollama was left on its default **`127.0.0.1:11434`** bind. Docker Desktop's host proxy
+is the only path in, so port 11434 is never exposed to the LAN. That is the safer
+setup and the one to prefer.
+
+#### If `host.docker.internal` does not resolve
+
+On some Linux/Docker versions the name only exists when you add it explicitly. The
+`--add-host=host.docker.internal:host-gateway` flag (already in the command and compose
+file above) is the fix.
+
+#### If you still must widen Ollama's bind
+
+Only do this if the proxy route genuinely fails, and understand the trade-off: there
+is **no authentication** on port 11434.
+
+```powershell
+# 1. Bind Ollama to all interfaces (persistent for the current user)
+[Environment]::SetEnvironmentVariable('OLLAMA_HOST', '0.0.0.0:11434', 'User')
+
+# 2. Restart Ollama so it picks the change up
+Stop-Process -Name ollama -ErrorAction SilentlyContinue
+ollama serve
+
+# 3. Confirm what it is actually listening on
+netstat -ano | Select-String ':11434'
+```
+
+Then restrict the firewall to the Docker subnet instead of opening the port:
+
+```powershell
+New-NetFirewallRule -DisplayName "Ollama (Docker subnet only)" `
+  -Direction Inbound -Protocol TCP -LocalPort 11434 `
+  -RemoteAddress 172.17.0.0/16 -Action Allow
+```
+
+Never port-forward `11434` on your router and never expose it through a public tunnel.
+To undo the bind change:
+
+```powershell
+[Environment]::SetEnvironmentVariable('OLLAMA_HOST', $null, 'User')
+```
+
+If Ollama is unreachable the app does not fail: `/api/ai/status` reports it honestly,
+shows a hint telling you what to fix, and generation falls back to the labelled
+deterministic templates.
 
 ### Health and logs
 

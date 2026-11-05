@@ -3,6 +3,47 @@
 All notable changes to this project. Format loosely follows Keep a Changelog.
 This is a personal local-first project; versions are milestones, not releases.
 
+## [1.3.0] — 2026-11-05
+
+Zero-API-key AI verified end to end, a public project website, and automated CI.
+
+### The headline
+"AI requires an API key" was never true. The container was reading
+`OLLAMA_URL=http://127.0.0.1:11434`, and inside a container `127.0.0.1` is the
+container. Pointing it at `host.docker.internal` produced real local inference
+with **no key, no subscription and no credits**.
+
+### Added
+- `site/` — responsive landing page (features, architecture, six real
+  screenshots captured from the running container, install tabs for
+  Windows/Docker/Linux, no-key explanation, security posture). No fake
+  testimonials, statistics or live-status claims.
+- `.github/workflows/ci.yml` — backend tests + `pyflakes`, frontend production
+  build, repository-integrity and secret scan, Docker image build and a container
+  health smoke test. Read-only permissions.
+- `.github/workflows/pages.yml` — official `upload-pages-artifact` /
+  `deploy-pages` deployment with `pages: write` and `id-token: write` only.
+- `docker-compose.yml` — correct `OLLAMA_URL` + `host.docker.internal` wiring and
+  a healthcheck, so `docker compose up` just works.
+- `backend/tests/test_ollama_live.py` — 5 **real** integration tests that hit the
+  live server and skip honestly when no model is present.
+- AI Settings now lists installed models and renders an actionable `hint`.
+
+### Fixed
+- **`/api/ai/status` always returned `models: []` for Ollama.** It echoed the
+  hardcoded spec instead of the installed models, so the UI could not show what
+  was actually available.
+- **A deleted model in the saved override broke every generation.** Overrides are
+  now honoured only while the model exists and fits `NEXUS_AI_MAX_MODEL_GB`.
+- Dockerfile installs `fonts-dejavu-core`; the slim image had no TTF, so
+  `drawtext` video rendering failed on Linux.
+
+### Verified
+- Real generation in Docker: `generated_by=ollama`, `qwen2.5-coder:3b`, 682 ms.
+- `docker compose` → `Up (healthy)`; `/api/ai/status` `installed=6`.
+- 55 frontend API call sites all resolve to real routes; no dead buttons.
+- **124 tests pass, 1 skips. `pyflakes`: 0 warnings.**
+
 ## [1.2.0] — 2026-11-05
 
 Deployment hardening. The Docker image was built and run for real; three issues

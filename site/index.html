@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXUS AI — local-first growth platform</title>
+<meta name="description" content="NEXUS AI is a local-first platform for content, video, career and research automation. Runs on your machine, uses a local LLM, needs no API key, and never publishes without your approval.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="NEXUS AI — local-first growth platform">
+<meta property="og:description" content="Local LLM, no API keys, approval-gated publishing. Python + FastAPI + React, running entirely on your own machine.">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top" aria-label="NEXUS AI home">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span class="brand-text">NEXUS <span class="accent">AI</span></span>
+    </a>
+    <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-links" id="navLinks" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#screens">Screenshots</a>
+      <a href="#install">Install</a>
+      <a href="#security">Security</a>
+      <a class="nav-cta" href="https://github.com/shahid0219/nexus-ai" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" id="top">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <p class="eyebrow"><span class="dot"></span> Local-first · No API key required</p>
+    <h1>Your growth stack,<br><span class="grad">running on your machine.</span></h1>
+    <p class="lede">
+      NEXUS AI is a single dashboard for content, video production, research, career
+      tools and scheduled automation. It runs entirely on your own hardware with a local
+      language model — and stops to ask before anything is published.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-ghost" href="https://github.com/shahid0219/nexus-ai" rel="noopener">View source</a>
+    </div>
+    <dl class="hero-stats">
+      <div><dt>API cost</dt><dd>£0</dd></div>
+      <div><dt>Required API keys</dt><dd>None</dd></div>
+      <div><dt>Network exposure</dt><dd>127.0.0.1</dd></div>
+      <div><dt>Telemetry</dt><dd>None</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <p class="kicker">Features</p>
+    <h2>One backend, twelve pages, no cloud bill</h2>
+    <p class="sub">Every feature below is implemented in this repository. Items needing a
+      third-party account are labelled — nothing is faked.</p>
+
+    <div class="grid grid-3">
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">◆</div>
+        <h3>Local AI routing</h3>
+        <p>One provider interface across DeepSeek, Groq, OpenRouter, Google, Ollama and a
+          deterministic template engine. Failures cool down per class instead of hammering
+          a provider.</p>
+        <span class="tag tag-ok">Works with no key</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">▶</div>
+        <h3>Video production</h3>
+        <p>Scene planning, FFmpeg rendering, thumbnails drawn with Pillow, SRT subtitles and
+          optional Windows SAPI voiceover. Output is validated with ffprobe.</p>
+        <span class="tag tag-ok">Works offline</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">✓</div>
+        <h3>Approval centre</h3>
+        <p>Publishing, uploading, deleting, spending and messaging all require a recorded
+          approval. Payloads are hashed and approvals are single-use.</p>
+        <span class="tag tag-ok">Always on</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">⌕</div>
+        <h3>Research &amp; jobs</h3>
+        <p>Trends from public Hacker News and Reddit JSON APIs; job discovery from RemoteOK
+          and Remotive. Cached, attributed, never scraped.</p>
+        <span class="tag tag-ok">Public APIs only</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">▤</div>
+        <h3>Career tools</h3>
+        <p>CV builder, cover letters with a truthfulness guard that rejects invented facts,
+          and application tracking with an explicit submit step.</p>
+        <span class="tag tag-ok">Works offline</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">◎</div>
+        <h3>GitHub tooling</h3>
+        <p>Repository status, a ten-pattern secret scan, staged-diff rescanning and a commit
+          and push flow that uses your existing <code>gh</code> login.</p>
+        <span class="tag tag-ok">Uses your gh login</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">✂</div>
+        <h3>Instagram</h3>
+        <p>Profile analysis, niche research, reels ideas and captions. Live publishing needs
+          your own Meta app; the app reports that state honestly.</p>
+        <span class="tag tag-warn">Needs Meta app</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">◉</div>
+        <h3>YouTube</h3>
+        <p>Real OAuth flow, upload with resumable transfer, and analytics — but only after
+          you create a Google OAuth client. Until then the page says so.</p>
+        <span class="tag tag-warn">Needs Google OAuth</span>
+      </article>
+
+      <article class="card reveal">
+        <div class="ico" aria-hidden="true">▦</div>
+        <h3>Monetisation</h3>
+        <p>Revenue ledger with verified and unverified totals kept separate, plus
+          sponsorship and freelance lead tracking. No numbers are invented.</p>
+        <span class="tag tag-ok">Works offline</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="architecture">
+  <div class="wrap">
+    <p class="kicker">Architecture</p>
+    <h2>One process, one volume, no external services</h2>
+    <p class="sub">FastAPI serves both the JSON API and the built React dashboard on a single
+      origin. SQLite holds all state. AI calls go through one router.</p>
+
+    <div class="arch">
+      <div class="arch-row">
+        <div class="arch-node">
+          <h4>React dashboard</h4>
+          <p>Vite build, HashRouter, plain CSS. Served by FastAPI from <code>frontend/dist</code>.</p>
+        </div>
+      </div>
+      <div class="arch-arrow" aria-hidden="true"></div>
+      <div class="arch-row">
+        <div class="arch-node accent-node">
+          <h4>FastAPI application</h4>
+          <p>82 API routes across 9 modules · approval gate · subprocess allowlist
+            (<code>ffmpeg</code>, <code>ffprobe</code>, <code>gh</code>, <code>git</code>).</p>
+        </div>
+      </div>
+      <div class="arch-arrow" aria-hidden="true"></div>
+      <div class="arch-row three">
+        <div class="arch-node">
+          <h4>AI router</h4>
+          <p>Ollama → optional free providers → deterministic templates.</p>
+        </div>
+        <div class="arch-node">
+          <h4>SQLite (WAL)</h4>
+          <p>25 tables. Single file on a mounted volume. Survives restarts.</p>
+        </div>
+        <div class="arch-node">
+          <h4>FFmpeg</h4>
+          <p>Video, thumbnails, subtitles. Validated with ffprobe.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="screens">
+  <div class="wrap">
+    <p class="kicker">Screenshots</p>
+    <h2>Captured from the running application</h2>
+    <p class="sub">These are real screenshots of this build running in Docker, not mockups.</p>
+    <div class="shots">
+      <figure class="shot reveal">
+        <img src="assets/screenshots/dashboard.png" alt="NEXUS AI dashboard showing system metrics and the active Ollama provider with six installed models" loading="lazy" width="1440" height="1000">
+        <figcaption>Command centre — live system metrics, active provider and pending approvals.</figcaption>
+      </figure>
+      <figure class="shot reveal">
+        <img src="assets/screenshots/settings.png" alt="AI settings page with provider priority, model selection and local Ollama status" loading="lazy" width="1440" height="1000">
+        <figcaption>AI settings — provider order, model override and Ollama health.</figcaption>
+      </figure>
+      <figure class="shot reveal">
+        <img src="assets/screenshots/youtube.png" alt="YouTube page showing OAuth status, video render and thumbnail tools" loading="lazy" width="1440" height="1000">
+        <figcaption>YouTube — render, thumbnails and OAuth status.</figcaption>
+      </figure>
+      <figure class="shot reveal">
+        <img src="assets/screenshots/content.png" alt="Content research page with pillars and audience planning" loading="lazy" width="1440" height="1000">
+        <figcaption>Content — pillars, audience and calendar planning.</figcaption>
+      </figure>
+      <figure class="shot reveal">
+        <img src="assets/screenshots/github.png" alt="GitHub integration page showing repository status and secret scanning" loading="lazy" width="1440" height="1000">
+        <figcaption>GitHub — repository status, secret scan and safe commit flow.</figcaption>
+      </figure>
+      <figure class="shot reveal">
+        <img src="assets/screenshots/approvals.png" alt="Approval centre listing gated actions" loading="lazy" width="1440" height="1000">
+        <figcaption>Approval centre — every publish, delete or spend waits here.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="install">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2>Run it in three commands</h2>
+    <p class="sub">Requires Python 3.10+ and Node 18+. Ollama is optional — without it,
+      NEXUS uses labelled deterministic templates.</p>
+
+    <div class="tabs" role="tablist" aria-label="Installation method">
+      <button class="tab active" role="tab" aria-selected="true" aria-controls="pane-win" id="tab-win">Windows</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="pane-docker" id="tab-docker">Docker</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="pane-linux" id="tab-linux">Linux / macOS</button>
+    </div>
+
+    <div class="panes">
+      <div class="pane active" id="pane-win" role="tabpanel" aria-labelledby="tab-win">
+<pre><code><span class="c">:: clone and start</span>
+git clone https://github.com/shahid0219/nexus-ai.git
+cd nexus-ai
+start_nexus.bat</code></pre>
+        <p class="note">The script installs dependencies, builds the dashboard once, starts
+          Ollama if present, then serves <code>http://127.0.0.1:8777</code>. Stop with
+          <code>stop_nexus.bat</code>.</p>
+      </div>
+
+      <div class="pane" id="pane-docker" role="tabpanel" aria-labelledby="tab-docker">
+<pre><code>docker build -t nexus-ai .
+docker run --rm -p 8777:8777 \
+  -v nexus-data:/app/data \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  --add-host=host.docker.internal:host-gateway \
+  nexus-ai</code></pre>
+        <p class="note">Inside a container <code>localhost</code> is the container, not your
+          PC. Point <code>OLLAMA_URL</code> at <code>host.docker.internal</code> to reach
+          Ollama on the Windows host.</p>
+      </div>
+
+      <div class="pane" id="pane-linux" role="tabpanel" aria-labelledby="tab-linux">
+<pre><code>python3 -m venv .venv &amp;&amp; . .venv/bin/activate
+pip install -r requirements.txt
+(cd frontend &amp;&amp; npm install &amp;&amp; npm run build)
+python -m uvicorn app.main:app --app-dir backend \
+  --host 127.0.0.1 --port 8777</code></pre>
+        <p class="note">On Debian/Ubuntu install <code>ffmpeg</code> and
+          <code>fonts-dejavu-core</code> for video rendering.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h3>Enable local AI (optional)</h3>
+      <p>NEXUS prefers a local model and falls back to templates when none is available.</p>
+<pre><code>ollama serve
+ollama pull gemma3:1b        <span class="c"># ~0.8 GB, fits a 4 GB GPU</span>
+ollama pull qwen2.5-coder:3b <span class="c"># ~1.8 GB, better quality</span></code></pre>
+      <p class="note">Models larger than <code>NEXUS_AI_MAX_MODEL_GB</code> (default 5.5 GB)
+        are never loaded, so a small GPU is not asked to swap. NEXUS does not download models
+        on its own.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="offline">
+  <div class="wrap narrow">
+    <p class="kicker">No-key operation</p>
+    <h2>What works with zero API keys</h2>
+    <div class="split">
+      <div>
+        <h3 class="ok-h">Works out of the box</h3>
+        <ul class="check">
+          <li>All twelve dashboard pages</li>
+          <li>Content pillars, audience and calendars</li>
+          <li>Video render, thumbnails, subtitles</li>
+          <li>CV builder and application tracking</li>
+          <li>Job discovery and trend research</li>
+          <li>Monetisation ledger</li>
+          <li>Scheduler and approval centre</li>
+          <li>SQLite persistence</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="warn-h">Needs a third-party account</h3>
+        <ul class="cross">
+          <li>Instagram publishing — your Meta app</li>
+          <li>YouTube upload — your Google OAuth client</li>
+          <li>LinkedIn — no official posting API is used</li>
+          <li>Remote providers — only if you add a key</li>
+        </ul>
+        <p class="note">These pages stay visible and report
+          <code>awaiting_configuration</code> rather than pretending to work.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <h3>How the fallback is labelled</h3>
+      <p>When no model is reachable, generation still returns real text — but every
+        response carries <code>generated_by: "fallback"</code> and the UI shows it. NEXUS
+        never presents deterministic output as a model response.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="security">
+  <div class="wrap narrow">
+    <p class="kicker">Security &amp; privacy</p>
+    <h2>Built to stay on your machine</h2>
+    <div class="grid grid-2">
+      <article class="card">
+        <h3>Local by default</h3>
+        <p>Binds <code>127.0.0.1</code>. The container only sets <code>0.0.0.0</code> inside
+          Docker's own network namespace. No analytics, no telemetry, no phone-home.</p>
+      </article>
+      <article class="card">
+        <h3>No shell execution</h3>
+        <p>Subprocesses are restricted to an allowlist — <code>ffmpeg</code>,
+          <code>ffprobe</code>, <code>gh</code>, <code>git</code> — always with
+          <code>shell=False</code>.</p>
+      </article>
+      <article class="card">
+        <h3>Credentials stay local</h3>
+        <p>Keys live in <code>data/credentials.json</code>, which is gitignored and never
+          returned by the API. Secrets are redacted from logs before they are written.</p>
+      </article>
+      <article class="card">
+        <h3>Approval gate</h3>
+        <p>Publishing, uploading, deleting, spending and messaging return HTTP 409 with an
+          approval id until you approve. Approvals are hashed and single-use.</p>
+      </article>
+    </div>
+    <p class="note center">This site collects nothing. It is static HTML, CSS and JavaScript
+      with no forms, no cookies and no third-party requests.</p>
+  </div>
+</section>
+
+<section class="section cta">
+  <div class="wrap narrow center">
+    <h2>Read the code before you run it</h2>
+    <p class="sub">Every claim on this page maps to a file in the repository. The test suite,
+      Docker build and secret scan all run in GitHub Actions on every push.</p>
+    <div class="hero-actions center-actions">
+      <a class="btn btn-primary" href="https://github.com/shahid0219/nexus-ai" rel="noopener">Open the repository</a>
+      <a class="btn btn-ghost" href="https://github.com/shahid0219/nexus-ai/blob/main/DEPLOYMENT.md" rel="noopener">Deployment guide</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="brand small">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span class="brand-text">NEXUS <span class="accent">AI</span></span>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="https://github.com/shahid0219/nexus-ai" rel="noopener">Repository</a>
+      <a href="https://github.com/shahid0219/nexus-ai/blob/main/README.md" rel="noopener">README</a>
+      <a href="https://github.com/shahid0219/nexus-ai/blob/main/DEPLOYMENT.md" rel="noopener">Deployment</a>
+      <a href="https://github.com/shahid0219/nexus-ai/blob/main/SECURITY.md" rel="noopener">Security</a>
+    </nav>
+    <p class="fine">Local-first software. This page is a static project site — it does not
+      host the Python backend.</p>
+  </div>
+</footer>
+
+<script src="assets/site.js" defer></script>
+</body>
+</html>

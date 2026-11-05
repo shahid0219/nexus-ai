@@ -3,19 +3,47 @@
 > **Source of truth for resuming work.** Read this file first in any new session.
 > Update it at the end of every work session.
 
-Last updated: 2026-11-05 (session 3, complete)
+Last updated: 2026-11-05 (session 4, complete)
 
 ---
 
 ## Current phase
 
-**DONE — bug-fix + deployment complete. 119 tests pass, 1 skips. Repository is
-PUBLIC at <https://github.com/shahid0219/nexus-ai>. Container image builds and
-runs healthy.**
+**DONE — zero-key AI verified end to end, public website live, CI + Pages
+automated. 124 tests pass, 1 skips.**
 
-The application is functional: 82 API routes, 25 tables, 12 dashboard pages,
-real local inference through Ollama, GitHub tooling, a Meta OAuth flow, and a
-production Docker image.
+- Repository: <https://github.com/shahid0219/nexus-ai> (public)
+- Website: <https://shahid0219.github.io/nexus-ai/> (GitHub Pages, `site/`)
+- Local app: `docker compose up` → <http://127.0.0.1:8777>
+
+The application is functional: 82 API routes, 25 tables, 12 dashboard pages, real
+local inference through Ollama (**no API key**), GitHub tooling, a Meta OAuth
+flow, and a production Docker image.
+
+## Session 4 summary (2026-11-05)
+
+### Zero-API-key AI
+- [x] Verified real generation through NEXUS from inside Docker:
+      `generated_by=ollama`, `model=qwen2.5-coder:3b`, `status=ok`, 682 ms.
+- [x] Confirmed the root cause of "AI needs a key": none — the container was
+      pointing at `127.0.0.1`, which is the container itself. Setting
+      `OLLAMA_URL=http://host.docker.internal:11434` fixed it.
+- [x] **Bug**: `/api/ai/status` always returned `models: []` for Ollama because it
+      echoed the hardcoded spec instead of the installed models. Now returns the
+      real list plus a `hint` explaining exactly how to fix an unavailable model.
+- [x] **Bug**: a saved model override naming a deleted model broke every
+      generation. Now honoured only while installed and within the size policy.
+- [x] `docker-compose.yml` with the correct `extra_hosts` and `OLLAMA_URL`.
+- [x] 5 **real** Ollama integration tests (`test_ollama_live.py`) — they skip
+      honestly when no model is present and assert a model actually responded.
+
+### Website + automation
+- [x] `site/` — polished responsive landing page, six real screenshots captured
+      from the running container, no fake stats or testimonials.
+- [x] `.github/workflows/ci.yml` — backend tests + pyflakes, frontend build,
+      integrity/secret scan, Docker build and container smoke test.
+- [x] `.github/workflows/pages.yml` — official Pages upload/deploy.
+- [x] Dockerfile gains a `fonts-dejavu-core` TTF so rendering works on Linux.
 
 ## Session 3 summary (2026-11-05)
 
@@ -55,12 +83,14 @@ production Docker image.
 
 | Integration | State | Blocking step |
 |---|---|---|
-| Ollama | **working** | none |
+| Ollama | **working** — real generation verified in Docker | none |
 | DeepSeek API | not configured (paid) | no free API exists; owner key optional |
 | Instagram/Meta | awaiting_configuration | owner must create a Meta app + professional account |
 | Google/YouTube | awaiting_configuration | owner must create an OAuth client |
 | GitHub | connected via `gh` | none |
-| Docker deployment | **working** | none (local/self-hosted only) |
+| Docker deployment | **working** (`docker compose up`) | none (local/self-hosted) |
+| GitHub Pages site | **deployed** | none |
+| GitHub Actions | **configured** | none |
 
 ## Remaining
 
@@ -71,6 +101,8 @@ production Docker image.
 4. Optional: `python -m pip install pyttsx3` to enable the voiceover test.
 5. Optional: push the built image to a registry if you want to run it on
    another machine (`docker tag` + `docker push`).
+6. Optional: enable Pages once in **Settings → Pages → Source: GitHub Actions**
+   if the first `pages.yml` run reports "Pages is not enabled".
 
 ## Key decisions already made (do not re-litigate)
 
