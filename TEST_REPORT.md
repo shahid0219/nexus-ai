@@ -1,14 +1,53 @@
 # TEST_REPORT.md — NEXUS AI
 
-**Run date:** 2026-11-05 (bug-fix pass)
+**Run date:** 2026-11-05 (deployment verification)
 **Command:** `python -m pytest backend/tests -q` (from project root)
-**Result:** **113 passed, 1 skipped** in 40.41 s
+**Result:** **119 passed, 1 skipped** in 51.45 s
 (the one skip is Windows SAPI voiceover, which cannot run on this Python build)
 `pyflakes backend/app backend/tests` → **0 warnings**.
 
 ---
 
-## Bug-fix pass (2026-11-05, later same day)
+## Deployment verification (2026-11-05, Docker)
+
+The image was built and run on the development machine; nothing below is
+simulated.
+
+```
+docker build -t nexus-ai .      -> success
+docker run -d -p 8780:8777 ...  -> Up (healthy)
+```
+
+| Check | Result |
+|---|---|
+| `docker ps` health | `Up 16 seconds (healthy)` |
+| `/api/health` | 200 — `frontend_built: true`, db at `/app/data/nexus.db` |
+| 16 GET endpoints | **0 failures** (health, system, stats, ai, github, accounts, oauth x2, linkedin, content, approvals, activity, schedule, research, monetisation) |
+| `POST /api/youtube/render` | 200 — MP4 written, `ffprobe` reports `duration=4.000000` |
+| `POST /api/ai/generate` | `generated_by=fallback status=fallback` (no Ollama in container) |
+| Restart persistence | `ai_calls_today` and 5 artifact files survived `docker restart` |
+| Process user | `uid=10001(nexus)` — not root |
+| SPA assets | `/` 200 (393 b shell) and `/assets/index-*.js` 200 (253 KB) |
+
+### Two deployment-only bugs found and fixed
+
+**A. `/api/github/status` → 503 in the container.**
+The endpoint called `git` unconditionally. A container without git satisfies
+every other feature but lost the whole GitHub page. It now returns
+`available: false` with a human-readable note, and `github_status` additionally
+requires the workspace to be an actual checkout.
+
+**B. Video render → `no TTF font found`.**
+Font paths were hardcoded to `C:/Windows/Fonts/...`. On the Debian image that
+path cannot exist. Fonts are now discovered across Windows, Linux, macOS and a
+bundled `tools/fonts` directory, the image installs `fonts-dejavu-core`, and the
+error text tells the operator how to fix it.
+
+Both are pinned by `backend/tests/test_deployment.py` (6 tests).
+
+---
+
+## Bug-fix pass (2026-11-05, earlier)
 
 A deliberate hunt for real defects found two that were **silently degrading
 behaviour while every HTTP response still looked healthy**.

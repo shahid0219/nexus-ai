@@ -42,11 +42,27 @@ presented as AI when it was not.
 
 ```powershell
 ollama serve
-ollama pull qwen2.5:3b      # ~2 GB, fits a 4 GB GPU
+ollama pull qwen2.5-coder:3b   # ~2 GB, fits a 4 GB GPU
 ```
 
-NEXUS picks the first available model from `qwen2.5:3b`, `llama3.2:3b`,
-`llama3.2:1b`, `phi3:mini`, `gemma2:2b`.
+Model selection is size-aware: NEXUS prefers `qwen2.5-coder:3b`, `qwen2.5:3b`,
+`gemma3:1b`, `ministral-3:3b`, `qwen3.5:4b`, `llama3.2:3b`, `llama3.2:1b`,
+`phi3:mini`, `gemma2:2b`, and **refuses to load anything above
+`NEXUS_AI_MAX_MODEL_GB` (default 5.5 GB)** so a small GPU is never asked to swap.
+
+Remote providers (Groq / OpenRouter / Google / DeepSeek) can be added with your own
+key on the **AI Settings** page. DeepSeek has no free API tier — its chat website is
+not an API and NEXUS never scrapes it.
+
+### Docker
+
+```bash
+docker build -t nexus-ai .
+docker run --rm -p 8777:8777 -v nexus-data:/app/data nexus-ai
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for volumes, Ollama networking, configuration
+variables and the security posture.
 
 ---
 

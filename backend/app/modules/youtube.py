@@ -26,8 +26,35 @@ YOUTUBE_SCOPE = ("https://www.googleapis.com/auth/youtube.upload "
 LOOPBACK_PORT = 8778
 LOOPBACK_REDIRECT = f"http://127.0.0.1:{LOOPBACK_PORT}/oauth2/callback"
 
-_fonts = [Path("C:/Windows/Fonts/arialbd.ttf"), Path("C:/Windows/Fonts/arial.ttf"),
-          Path("C:/Windows/Fonts/segoeuib.ttf")]
+# Font candidates across Windows, Linux, macOS and the container image. The first
+# one that exists wins; NDEX ships a font in tools/fonts for slim deployments.
+_font_candidates = [
+    # bundled (added to the Docker image and usable on any host)
+    config.ROOT / "tools" / "fonts" / "DejaVuSans-Bold.ttf",
+    config.ROOT / "tools" / "fonts" / "DejaVuSans.ttf",
+    # Windows
+    Path("C:/Windows/Fonts/arialbd.ttf"), Path("C:/Windows/Fonts/arial.ttf"),
+    Path("C:/Windows/Fonts/segoeuib.ttf"), Path("C:/Windows/Fonts/segoeui.ttf"),
+    # Linux (Debian/Ubuntu font packages)
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+    Path("/usr/share/fonts/TTF/DejaVuSans.ttf"),
+    # macOS
+    Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
+    Path("/System/Library/Fonts/Helvetica.ttc"),
+]
+
+
+def _font_path() -> Path | None:
+    for f in _font_candidates:
+        try:
+            if f.is_file():
+                return f
+        except OSError:
+            continue
+    return None
 
 
 # ------------------------------------------------------------ topics/script ---
@@ -172,10 +199,13 @@ def _esc_path(p: str) -> str:
 
 
 def _fontfile() -> str:
-    for f in _fonts:
-        if f.exists():
-            return _esc_path(str(f))
-    raise NexusError("no TTF font found for rendering", code="tool_missing", status=503)
+    found = _font_path()
+    if found:
+        return _esc_path(str(found))
+    raise NexusError(
+        "no TTF font found for rendering — install a font package "
+        "(e.g. fonts-dejavu-core on Debian/Ubuntu) or place a .ttf in tools/fonts",
+        code="tool_missing", status=503)
 
 
 class Scene(BaseModel):
@@ -288,9 +318,12 @@ def thumbnail(body: ThumbIn):
     draw = ImageDraw.Draw(img)
 
     def font(sz: int):
-        for cand in (Path("C:/Windows/Fonts/arialbd.ttf"), Path("C:/Windows/Fonts/arial.ttf")):
-            if cand.exists():
-                return ImageFont.truetype(str(cand), sz)
+        found = _font_path()
+        if found:
+            try:
+                return ImageFont.truetype(str(found), sz)
+            except OSError:
+                pass
         return ImageFont.load_default()
 
     def wrap(text: str, fnt, max_w: int) -> list[str]:

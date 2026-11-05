@@ -98,6 +98,26 @@ def _gh_auth() -> dict:
 
 @router.get("/status")
 def github_status():
+    has_git = shutil.which("git") is not None
+    is_repo = (config.ROOT / ".git").exists()
+    if not has_git or not is_repo:
+        # A container without git (or without the repository checked out) is a
+        # valid deployment: report it plainly instead of failing the endpoint.
+        detail = ("git is not installed in this deployment" if not has_git
+                  else "this workspace is not a git checkout")
+        return {
+            "available": False,
+            "gh": {"available": False, "authenticated": False, "detail": detail},
+            "remote": None, "remote_ok": False, "branch": None,
+            "dirty": False, "changed_files": 0, "changes": [],
+            "ahead": None, "behind": None,
+            "last_commit": {"hash": None, "subject": None},
+            "tools": {"git": has_git, "gh": shutil.which("gh") is not None},
+            "note": "GitHub repository features need a git checkout and an "
+                    "authenticated gh CLI. They are unavailable in this "
+                    "deployment; the rest of NEXUS works normally.",
+            "ts": now_iso(),
+        }
     branch = (_git("branch", "--show-current")["stdout"] or "").strip() or None
     porcelain = _git("status", "--porcelain", "--untracked-files=normal")["stdout"] or ""
     changed = [line for line in porcelain.splitlines() if line.strip()]
@@ -107,6 +127,7 @@ def github_status():
     last_hash, _, last_subject = (last["stdout"] or "").strip().partition("\t")
     remote = _remote_url()
     return {
+        "available": True,
         "gh": _gh_auth(),
         "remote": remote,
         "remote_ok": bool(remote and "github.com" in remote),
@@ -117,8 +138,7 @@ def github_status():
         "ahead": int(ahead["stdout"].strip()) if ahead["returncode"] == 0 else None,
         "behind": int(behind["stdout"].strip()) if behind["returncode"] == 0 else None,
         "last_commit": {"hash": last_hash or None, "subject": last_subject or None},
-        "tools": {"git": shutil.which("git") is not None,
-                  "gh": shutil.which("gh") is not None},
+        "tools": {"git": True, "gh": shutil.which("gh") is not None},
         "ts": now_iso(),
     }
 

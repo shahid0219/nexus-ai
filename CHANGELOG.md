@@ -3,6 +3,44 @@
 All notable changes to this project. Format loosely follows Keep a Changelog.
 This is a personal local-first project; versions are milestones, not releases.
 
+## [1.2.0] — 2026-11-05
+
+Deployment hardening. The Docker image was built and run for real; three issues
+only appeared once the app ran outside the developer's Windows checkout.
+
+### Added
+- `Dockerfile` — two-stage build (Node 20 → React bundle, `python:3.10-slim`
+  runtime). Serves API and dashboard from one origin, runs as uid 10001,
+  declares a `/api/health` `HEALTHCHECK`, and persists `/app/data` as a volume.
+- `.dockerignore` — excludes git history, `data/`, `*.db`, credentials, and
+  `node_modules` from the build context.
+- `DEPLOYMENT.md` — Windows, Docker, bare-metal, configuration, and the security
+  posture, including what is deliberately *not* deployed.
+- `backend/tests/test_deployment.py` — 6 tests for the fixes below.
+
+### Fixed
+- **`/api/github/status` returned 503 in any deployment without git.** The
+  endpoint now reports `available: false` with an explanation instead of failing,
+  and the GitHub page renders a notice. GitHub tooling also now requires the
+  workspace to be a git checkout, not just a `git` binary.
+- **Video rendering required hardcoded Windows font paths.**
+  `C:/Windows/Fonts/arialbd.ttf` does not exist in a Linux image, so render
+  failed with `no TTF font found`. Fonts are now discovered across Windows,
+  Linux, macOS and a bundled `tools/fonts` directory; the image installs
+  `fonts-dejavu-core` and the error message names the fix.
+- `Dockerfile` installs `git` and `ca-certificates` so repository features work
+  when a checkout is mounted.
+
+### Verified in the running container
+- `Up (healthy)`; `/api/health` reports `frontend_built: true`.
+- 16 GET endpoints → 0 failures.
+- `POST /api/youtube/render` → MP4 validated by `ffprobe` at exactly
+  `duration=4.000000`; thumbnail pipeline used the Debian font.
+- Data and artifacts survived `docker restart`.
+- Process runs as `uid=10001(nexus)`, not root.
+
+**Tests: 119 passed, 1 skipped. `pyflakes`: 0 warnings.**
+
 ## [1.1.1] — 2026-11-05
 
 Bug-fix pass following a deliberate defect hunt. Two defects were silently

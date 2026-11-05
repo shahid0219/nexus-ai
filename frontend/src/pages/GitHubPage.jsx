@@ -70,7 +70,13 @@ export default function GitHubPage() {
       {status.error && <ErrorMsg error={status.error} onRetry={status.reload} />}
       {status.loading && !status.data && <Spinner label="Loading repository status…" />}
 
-      {st && (
+      {st && st.available === false && (
+        <Notice tone="info" title="GitHub features unavailable here">
+          {st.note} ({st.gh?.detail})
+        </Notice>
+      )}
+
+      {st && st.available !== false && (
         <>
           <Card title="Connection" actions={<Btn variant="ghost" onClick={status.reload} busy={status.loading}>Refresh</Btn>}>
             <dl className="kv">

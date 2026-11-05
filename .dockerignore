@@ -1,0 +1,19 @@
+# Build artifacts and local runtime state are never part of the image context.
+.git
+.gitignore
+**/node_modules
+frontend/dist
+frontend/.npm-cache-tmp
+**/__pycache__
+**/*.pyc
+.pytest_cache
+data
+*.db
+*.db-*
+data/credentials.json
+.env
+.venv
+venv
+docs
+*.md
+!README.md
