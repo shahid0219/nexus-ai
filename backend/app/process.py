@@ -7,9 +7,19 @@ from . import config
 from .security import NexusError
 
 
+def _basename(binary: str) -> str:
+    """Basename for either path separator.
+
+    `Path(...).name` only splits on the host separator, so on Linux a Windows-style
+    "C:\\tools\\ffmpeg.exe" would not resolve to "ffmpeg.exe". Accept both.
+    """
+    return binary.replace("\\", "/").rsplit("/", 1)[-1].strip().lower()
+
+
 def resolve(binary: str) -> str:
-    name = Path(binary).name.lower()
-    # Accept both bare names and full paths, but only for allowlisted tools.
+    name = _basename(binary)
+    # Accept both bare names and full paths, but only for allowlisted tools, and
+    # always return the discovered location rather than the caller's string.
     for allowed in config.ALLOWED_SUBPROCESSES:
         if name == allowed or name == f"{allowed}.exe":
             if allowed == "ffmpeg":
