@@ -1,5 +1,15 @@
 # NEXUS AI
 
+> A local-first AI-powered productivity and digital growth platform.
+
+### 🚀 Explore NEXUS AI
+
+[🌐 OPEN LIVE WEBSITE](https://shahid0219.github.io/nexus-ai/)
+
+[💻 View Source Code](https://github.com/shahid0219/nexus-ai)
+
+---
+
 Local-first autonomous digital growth platform. One dashboard for content creation,
 video production, career management, research, monetisation tracking and scheduled
 automation — running entirely on your own machine.
